@@ -13,6 +13,9 @@
 .Renviron
 _rtmp.txt
 
+# 工作助手/本地工作数据
+.workbuddy/
+
 # 系统
 Thumbs.db
 .DS_Store
