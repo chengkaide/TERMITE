@@ -33,13 +33,16 @@ termite_server <- function(input, output, session) {
     updateSelectizeInput(session, "ref_mats", selected = d$ref_materials)
   }, ignoreInit = TRUE)
 
-  # 参考物质下拉候选：从推荐值表里读
+  # 参考物质下拉候选：推荐值表的行名 + 别名表里的仪器写法
   observe({
-    std <- file.path(input$dir, input$file_standards)
-    if (!file.exists(std)) return()
-    nm <- tryCatch(row.names(termite_read_standards(std)), error = function(e) NULL)
-    if (!is.null(nm))
-      updateSelectizeInput(session, "ref_mats", choices = nm, server = FALSE)
+    c0 <- list(dir = input$dir, app_dir = root)
+    std <- termite_resource(input$file_standards, c0)
+    nm  <- if (file.exists(std)) tryCatch(row.names(termite_read_standards(std)),
+                                          error = function(e) NULL) else NULL
+    al  <- termite_read_alias(termite_resource(input$file_alias, c0))
+    if (!is.null(al)) nm <- unique(c(nm, al$alias))
+    if (!is.null(nm)) updateSelectizeInput(session, "ref_mats", choices = nm, server = FALSE)
+    if (!is.null(nm)) updateSelectizeInput(session, "qc_mats",  choices = nm, server = FALSE)
   })
 
   observe({
@@ -53,6 +56,15 @@ termite_server <- function(input, output, session) {
     d$dir            <- input$dir
     d$dir_sample     <- input$dir_sample
     d$dir_ref        <- input$dir_ref
+    d$layout         <- input$layout
+    d$auto_detect    <- isTRUE(input$auto_detect)
+    d$file_pattern   <- if (nzchar(input$file_pattern)) input$file_pattern else "\\.(csv|asc|txt)$"
+    d$sample_filter  <- input$sample_filter
+    d$file_alias     <- input$file_alias
+    d$file_iso_alias <- input$file_iso_alias
+    d$ref_names      <- as.character(input$ref_mats)
+    d$qc_names       <- as.character(input$qc_mats)
+    d$app_dir        <- root
     d$dir_results    <- "Results"
     d$file_isotopes  <- input$file_isotopes
     d$file_standards <- input$file_standards
@@ -62,6 +74,11 @@ termite_server <- function(input, output, session) {
     d$header_line    <- as.integer(input$header_line)
     d$signal_line    <- as.integer(input$signal_line)
     d$column_IS      <- as.integer(input$column_IS)
+    if (length(input$is_iso_sel) && nzchar(input$is_iso_sel)) {   # 选了同位素名就换算成列号
+      iso_now <- scan_rv()$iso
+      j <- match(input$is_iso_sel, iso_now)
+      if (!is.na(j)) d$column_IS <- j + 1L
+    }
     d$is_conc        <- as.numeric(input$is_conc)
     d$background     <- input$background
     d$first_blank    <- as.integer(input$first_blank)
@@ -155,12 +172,14 @@ termite_server <- function(input, output, session) {
 
   output$header_tbl <- renderTable({
     req(ok()); r <- result()
-    iso <- termite_read_isotopes(file.path(r$cfg$dir, r$cfg$file_isotopes))
+    iso <- termite_read_isotopes(termite_resource(r$cfg$file_isotopes, r$cfg))
+    key <- r$db_key                 # 查参考表用的列名（可能与文件里的写法不同）
     data.frame(序号 = seq_along(r$isotopes),
                同位素 = r$isotopes,
                元素 = r$elements,
-               原子量 = signif(as.numeric(iso[1, r$isotopes]), 8),
-               同位素丰度 = signif(as.numeric(iso[2, r$isotopes]), 8),
+               参考表列名 = ifelse(key == r$isotopes_db, "", key),
+               原子量 = signif(as.numeric(iso[1, key]), 8),
+               同位素丰度 = signif(as.numeric(iso[2, key]), 8),
                换算因子 = signif(as.numeric(r$iso_factor), 6),
                check.names = FALSE)
   }, striped = TRUE, bordered = TRUE)
@@ -203,6 +222,7 @@ termite_server <- function(input, output, session) {
     else c(r$cfg$first_signal, r$cfg$last_signal)
     termite_plot_raw(m, r$isotopes, blank = bl, signal = sg, rows = rows,
                      offset = off, log_y = isTRUE(input$raw_log),
+                     which_iso = plot_iso(),
                      main = sprintf("%s　（灰=空白区，红=信号区）", input$raw_file))
   }, res = 96)
 
@@ -219,7 +239,9 @@ termite_server <- function(input, output, session) {
   }, res = 96)
 
   # ---------------------------------------------------------------- RSF
-  output$rsf_plot <- renderPlot({ req(ok()); termite_plot_rsf(result()) }, res = 96)
+  output$rsf_plot <- renderPlot({
+    req(ok()); termite_plot_rsf(result(), isotopes = plot_iso())
+  }, res = 96)
 
   output$rm_check_ui <- renderUI({
     req(ok()); r <- result()
@@ -288,7 +310,9 @@ termite_server <- function(input, output, session) {
 
   output$result_plot <- renderPlot({
     req(ok()); r <- result()
-    if (identical(r$mode, "spot")) termite_plot_spot(r) else termite_plot_profile(r)
+    el <- if (is.null(plot_iso())) NULL else unique(element_of(plot_iso()))
+    if (identical(r$mode, "spot")) termite_plot_spot(r, elements = el)
+    else termite_plot_profile(r, elements = el)
   }, res = 96)
 
   output$result_tbl_note <- renderUI({
@@ -323,6 +347,146 @@ termite_server <- function(input, output, session) {
       utils::write.table(round(m, 4), f, sep = "\t", col.names = NA)
     }
   )
+
+  # 绘图要显示哪些同位素（58 个全画会糊成一团）
+  observe({
+    s <- scan_rv()
+    rr <- if (!is.null(isolate(run_flag()))) isolate(result()) else NULL
+    ch <- if (!is.null(rr) && is.null(rr$error) && !is.null(rr$isotopes)) rr$isotopes else
+          if (!is.null(s) && length(s$iso)) s$iso else NULL
+    if (!is.null(ch)) updateSelectizeInput(session, "plot_iso", choices = ch)
+  })
+
+  plot_iso <- reactive({
+    v <- input$plot_iso
+    if (is.null(v) || !length(v)) NULL else as.character(v)
+  })
+
+  # ---------------------------------------------------------------- 导入数据
+  scan_rv <- reactiveVal(NULL)
+
+  observeEvent(input$scan, {
+    c0 <- cfg()
+    out <- tryCatch({
+      pl <- termite_plan(c0, probe_all = TRUE)
+      pr <- NULL; n_data <- NA_integer_
+      if (nrow(pl)) {
+        pr <- tryCatch(termite_probe(pl$path[1]), error = function(e) NULL)
+        n_data <- tryCatch(nrow(termite_read_probed(pl$path[1], pr)$values),
+                           error = function(e) NA_integer_)
+      }
+      list(plan = pl, probe = pr, n_data = n_data, error = NULL,
+           iso = if (!is.null(pr)) pr$isotopes_raw else character(0))
+    }, error = function(e)
+      list(plan = NULL, probe = NULL, n_data = NA_integer_,
+           error = conditionMessage(e), iso = character(0)))
+    scan_rv(out)
+    if (is.null(out$error) && nrow(out$plan)) {
+      nm <- unique(out$plan$sample_name)
+      isolate({
+        updateSelectizeInput(session, "ref_mats", choices = unique(c(input$ref_mats, nm)),
+                             selected = input$ref_mats)
+        updateSelectizeInput(session, "qc_mats", choices = unique(c(input$qc_mats, nm)),
+                             selected = input$qc_mats)
+      })
+      updateSelectizeInput(session, "is_iso_sel", choices = out$iso,
+                           selected = if (length(out$iso)) out$iso[1] else NULL)
+    }
+  })
+
+  observeEvent(input$apply_probe, {
+    s <- scan_rv(); req(s, s$probe)
+    updateNumericInput(session, "header_line", value = s$probe$header_line)
+    updateNumericInput(session, "signal_line", value = s$probe$signal_line)
+    updateNumericInput(session, "n_iso",       value = s$probe$n_iso)
+    if (!is.na(s$n_data)) {                       # 给一组可用的起始积分窗口
+      lo <- s$probe$signal_line; hi <- lo + s$n_data - 1L
+      updateNumericInput(session, "first_blank",  value = lo)
+      updateNumericInput(session, "last_blank",   value = lo + max(1L, round(s$n_data * 0.15)) - 1L)
+      updateNumericInput(session, "first_signal", value = lo + round(s$n_data * 0.35))
+      updateNumericInput(session, "last_signal",  value = lo + max(1L, round(s$n_data * 0.92)))
+    }
+    updateActionButton(session, "apply_probe", label = "已填回左侧参数 ✓")
+  })
+
+  output$import_summary <- renderUI({
+    s <- scan_rv()
+    if (is.null(s)) return(div(class = "kpi", "还没有扫描。点左侧「扫描目录并预览」。"))
+    if (!is.null(s$error))
+      return(div(class = "warn-box", paste("扫描失败：", s$error)))
+    pl <- s$plan
+    if (!nrow(pl)) return(div(class = "warn-box", "没有找到任何数据文件，请检查目录与文件名过滤。"))
+    k <- function(l, v) div(class = "kpi", HTML(sprintf("%s <b>%s</b>", l, v)))
+    pr <- s$probe
+    tagList(
+      k("文件数", nrow(pl)),
+      k("样品", sum(pl$kind == "sample")),
+      k("定标参考", sum(pl$kind == "ref")),
+      k("质量监控", sum(pl$kind == "qc")),
+      if (!is.null(pr)) k("识别格式", pr$format),
+      if (!is.null(pr)) k("表头行", pr$header_line),
+      if (!is.null(pr)) k("数据起始行", pr$signal_line),
+      if (!is.null(pr)) k("同位素个数", pr$n_iso),
+      if (!is.null(pr)) k("分隔符", if (pr$sep == "\t") "制表符" else pr$sep),
+      if (!is.null(pr)) k("同位素写法", if (pr$isotope_style == "mass-first") "25Mg" else "Mg25"),
+      if (!is.na(s$n_data)) k("每文件数据行", s$n_data),
+      div(style = "margin-top:6px"),
+      if (sum(pl$kind == "sample") == 0)
+        div(class = "warn-box",
+            "没有识别出任何样品。flat 布局下，参考物质/监控名单**之外**的文件才算样品；",
+            "请确认名单填对了，或检查样品名过滤是否把样品全滤掉了。")
+    )
+  })
+
+  output$import_tbl <- renderTable({
+    s <- scan_rv(); req(s, s$plan)
+    if (!nrow(s$plan)) return(NULL)
+    d <- s$plan
+    d$kind <- c(sample = "样品", ref = "定标参考", qc = "质量监控")[d$kind]
+    d[, c("file", "sample_name", "kind", "material", "format", "n_iso")]
+  }, striped = TRUE, bordered = TRUE, na = "")
+
+  output$dl_plan <- downloadHandler(
+    filename = function() sprintf("TERMITE_import_plan_%s.csv", format(Sys.time(), "%Y%m%d_%H%M")),
+    content  = function(f) {
+      s <- scan_rv(); if (is.null(s) || is.null(s$plan)) { writeLines("", f); return() }
+      utils::write.csv(s$plan, f, row.names = FALSE)
+    }
+  )
+
+  suggest_rv <- reactiveVal(NULL)
+  observeEvent(input$suggest_is, {
+    c0 <- cfg()
+    out <- tryCatch({
+      pl <- termite_plan(c0, probe_all = TRUE)
+      termite_suggest_is(pl, c0, c0$first_blank, c0$last_blank,
+                         c0$first_signal, c0$last_signal, top = 3L)
+    }, error = function(e) structure(list(error = conditionMessage(e)), class = "termite_error"))
+    suggest_rv(out)
+  })
+
+  output$suggest_note <- renderUI({
+    s <- suggest_rv()
+    if (is.null(s)) return(NULL)
+    if (inherits(s, "termite_error"))
+      return(div(class = "warn-box", paste("计算失败：", s$error)))
+    top1 <- s[s$rank == 1, ]
+    div(class = "ok-box",
+        "每个文件信号最强的同位素：",
+        paste(sprintf("%s = %s", names(table(top1$isotope)),
+                      as.integer(table(top1$isotope))), collapse = "；"),
+        br(), "若出现多种主量元素，说明这批样品基体不同，",
+        "单一内标含量与单一 RSF 未必同时适用 —— 可以先用「样品名过滤」分批处理。")
+  })
+
+  output$suggest_tbl <- renderTable({
+    s <- suggest_rv(); req(s)
+    if (inherits(s, "termite_error")) return(NULL)
+    d <- s[s$rank == 1, c("sample_name", "kind", "isotope", "net_cps", "snr")]
+    d$net_cps <- signif(d$net_cps, 4); d$snr <- signif(d$snr, 3)
+    names(d) <- c("样品名", "类别", "主量同位素", "净计数 cps", "信号/背景")
+    d
+  }, striped = TRUE, bordered = TRUE, digits = 4)
 
   # ---------------------------------------------------------------- 原理
   output$principles <- renderUI({

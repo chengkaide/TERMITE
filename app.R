@@ -37,6 +37,7 @@ library(shiny)
   stop("找不到 R/termite_core.R；请把工作目录切到仓库根目录后再启动。")
 }
 
+options(encoding = "UTF-8")   # 本机 R 的 native 编码可能是 GBK，源码里有中文注释
 .app_dir <- .termite_app_dir()
 for (.f in list.files(file.path(.app_dir, "R"), pattern = "\\.[Rr]$", full.names = TRUE))
   source(.f, encoding = "UTF-8")

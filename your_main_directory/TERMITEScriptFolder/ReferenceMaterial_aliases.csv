@@ -1,0 +1,59 @@
+﻿alias,target
+# ---------------------------------------------------------------------------
+# 参考物质名称别名表：仪器里的写法 → 推荐值表（Standards_GeoReM.csv）里的行名
+#
+# 仪器导出里的标样名和 GeoReM 的命名经常不一致，例如 Qtegra 写 "SRM 610"，
+# 而推荐值表里的行名是 "NIST610"。这张表负责把它们对上。
+#
+# 用法：在 Shiny 的「导入数据」里填参考物质名称时，可以直接填仪器里的写法，
+#       程序会先查这张表，再做分类与定标。
+#
+# 匹配不区分大小写；表里没有的名字原样返回。
+# ---------------------------------------------------------------------------
+
+# NIST 玻璃标样
+SRM 610,NIST610
+SRM 612,NIST612
+SRM 614,NIST614
+SRM 616,NIST616
+NIST SRM 610,NIST610
+NIST SRM 612,NIST612
+NIST SRM 614,NIST614
+NIST SRM 616,NIST616
+NIST 610,NIST610
+NIST 612,NIST612
+NIST610,NIST610
+NIST612,NIST612
+NIST610,N610
+NIST612,N612
+
+# MPI-DING
+ATHO-G,ATHO-G
+ATHOG,ATHO-G
+StHs6/80-G,StHs
+StHs,StHs
+KL2-G,KL2-G
+KL2G,KL2-G
+T1-G,T1-G
+T1G,T1-G
+GOR128-G,GOR128-G
+GOR132-G,GOR132-G
+ML3B-G,ML3B-G
+BM90/21-G,BM90/21-G
+
+# USGS
+BCR-2G,BCR-2G
+BCR2G,BCR-2G
+BHVO-2G,BHVO-2G
+BHVO2G,BHVO-2G
+BIR-1G,BIR-1G
+BIR1G,BIR-1G
+GSD-1G,GSD-G
+GSD1G,GSD-G
+GSE-1G,GSE-1G
+MACS-1,MACS1
+MACS-3,MACS3
+MACS1,MACS1
+MACS3,MACS3
+BAM-S005B,BAM-B
+BAM-B,BAM-B

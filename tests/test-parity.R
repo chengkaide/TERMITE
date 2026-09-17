@@ -11,7 +11,8 @@ if (!file.exists(file.path(root, "R", "termite_core.R"))) root <- getwd()
 if (!file.exists(file.path(root, "R", "termite_core.R")))
   stop("找不到 R/termite_core.R，请在仓库根目录运行，或设置 TERMITE_ROOT。")
 setwd(root)
-for (f in list.files("R", pattern = "\\.[Rr]$", full.names = TRUE)) source(f)
+options(encoding = "UTF-8")     # 本机 R 的 native 编码可能是 GBK，必须显式指定
+for (f in list.files("R", pattern = "\\.[Rr]$", full.names = TRUE)) source(f, encoding = "UTF-8")
 
 cat("\n===================================================================\n")
 cat("  TERMITE 内核 · 与原始脚本的数值一致性测试\n")

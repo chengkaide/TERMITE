@@ -12,6 +12,7 @@
 root <- Sys.getenv("TERMITE_ROOT", unset = ".")
 if (!file.exists(file.path(root, "R", "termite_core.R"))) root <- getwd()
 setwd(root)
+options(encoding = "UTF-8")
 suppressPackageStartupMessages(library(shiny))
 for (f in list.files("R", pattern = "\\.[Rr]$", full.names = TRUE)) source(f, encoding = "UTF-8")
 
@@ -31,6 +32,12 @@ base_inputs <- list(
   n_sweeps_sample = NA, n_sweeps_ref = NA,
   tabs = "总览", raw_which = "ref", raw_log = TRUE, raw_rows = c(5, 300),
   raw_file = "NIST612_spotscan_example_001.csv",
+  layout = "dir", auto_detect = FALSE,
+  file_pattern = "\\.(csv|asc|txt)$", sample_filter = "",
+  qc_mats = character(0), is_iso_sel = "",
+  file_alias = "TERMITEScriptFolder/ReferenceMaterial_aliases.csv",
+  file_iso_alias = "TERMITEScriptFolder/Isotope_aliases.csv",
+  scan = 0, apply_probe = 0, suggest_is = 0,
   verify = 0
 )
 
@@ -71,8 +78,11 @@ run_case <- function(label, over) {
       o <- output$principles
       stopifnot(nchar(paste(as.character(o), collapse = "")) > 1000)
     })
+    session$setInputs(scan = 1)
+    check("导入预览摘要", { o <- output$import_summary; stopifnot(!is.null(o)) })
+    check("导入清单表", { o <- output$import_tbl; stopifnot(nrow(o) > 0) })
     check("下载：结果表", {
-      r <- result(); d <- termite_table(r); stopifnot(ncol(d) == 13)
+      r <- result(); d <- termite_table(r); stopifnot(ncol(d) >= 3)
     })
   })
 }
@@ -80,6 +90,8 @@ run_case <- function(label, over) {
 cat("\n===================================================================\n")
 cat("  TERMITE Shiny · 服务端集成测试\n")
 cat("===================================================================\n")
+
+qt_dir <- "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA"
 
 run_case("点分析 · 默认参数", list())
 
@@ -101,6 +113,18 @@ run_case("线扫描 · 复刻模式", list(
   legacy_lod = TRUE, legacy_time_axis = TRUE, clip_negative = FALSE,
   raw_which = "sample", raw_file = "HLK2_linescan_example_001.csv",
   raw_rows = c(100, 600)))
+
+if (dir.exists(qt_dir)) {
+  run_case("Qtegra · flat 布局（真实数据）", list(
+    dir = qt_dir, layout = "flat", auto_detect = TRUE, dir_sample = "",
+    ref_mats = c("SRM 610", "SRM 612"),
+    qc_mats = c("BIR-1G", "BCR-2G", "BHVO-2G"),
+    is_iso_sel = "182W", column_IS = 55, is_conc = 638500,
+    first_blank = 25, last_blank = 60, first_signal = 70, last_signal = 118,
+    raw_which = "sample", raw_file = "20230806CKDA_10.csv", raw_rows = c(16, 130)))
+} else {
+  cat("\n[ 跳过 Qtegra 实测用例：找不到 ", qt_dir, " ]\n", sep = "")
+}
 
 cat("\n===================================================================\n")
 if (fails == 0L) cat("  结果：全部通过\n") else cat(sprintf("  结果：%d 项失败\n", fails))

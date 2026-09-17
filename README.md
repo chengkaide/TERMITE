@@ -38,6 +38,7 @@ shiny::runApp(".")
 
 | 页面 | 内容 |
 |---|---|
+| **导入数据** | 扫描目录、识别格式、分类样品/定标参考/质量监控；判断该用哪个内标 |
 | **总览** | 本次运行的全部参数快照、警告信息、文件清单、同位素表 |
 | **原始信号** | 逐同位素的 cps 时序图（可对数轴），标出空白区与信号区；背景柱状图 |
 | **校准 RSF** | 逐文件 RSF 折线 + 均值线、各参考物质的回收率校核、RSF 表与导出 |
@@ -47,6 +48,40 @@ shiny::runApp(".")
 | **验证** | 一键重跑与原脚本的逐位一致性自检 |
 
 侧栏参数分 6 组折叠：数据与仪器、行列与内标、积分窗口、离群检验、兼容与修正、高级。
+
+### 数据导入：支持多种仪器格式
+
+原始 TERMITE 只认一种文件格式。导入层改为**按内容识别**，目前支持：
+
+| 格式 | 识别特征 |
+|---|---|
+| **Qtegra**（Thermo iCAP RQ/TQ） | 首行 `样品名:日期;`，第 14 行 `Time,7Li,9Be,…` 表头，第 15 行 dwell/xcal 元数据 |
+| **Agilent / 四极杆** | `Time [Sec],Mg25,…` 表头，逗号分隔 |
+| **Element2 / SF-ICP-MS** | 同上但制表符分隔，表头带 `(LR)` 后缀 |
+| 其它 | 只要有一行以 `Time` 开头、后面跟同位素名，且其下有数值行 |
+
+表头行、数据起始行、分隔符、同位素个数、同位素命名（`25Mg` 还是 `Mg25`）
+全部自动识别，**不依赖固定行号**。样品名可以直接从文件里读（Qtegra 首行）。
+
+同一目录混放时，按文件里的样品名把文件分成三类：
+
+- **定标参考**（如 SRM 610 / SRM 612）→ 参与 RSF
+- **质量监控**（如 BIR-1G / BCR-2G / BHVO-2G）→ 只报回收率，**不参与 RSF**
+- 其余 → 样品
+
+仪器里的名称与 GeoReM 命名不一致时（`SRM 610` vs `NIST610`）由别名表映射。
+
+细节见 **[docs/IMPORT.md](docs/IMPORT.md)**。
+
+### 命令行入口
+
+不启动界面也能批处理（`tools/run_termite.R`）：
+
+```bash
+Rscript tools/run_termite.R --dir "<数据目录>" --layout flat --auto \
+  --ref "SRM 610,SRM 612" --qc "BIR-1G,BCR-2G,BHVO-2G" \
+  --is 182W --is-conc 638500 --blank 25,60 --signal 70,118 --out "<输出目录>"
+```
 
 ---
 
@@ -149,14 +184,18 @@ C_j   = C_j^未校正(样品) / mean(RSF_j)
 app.R                         Shiny 入口
 R/
   termite_core.R              归算内核（纯 base R，零外部依赖）
+  termite_import.R            格式识别与数据导入
   termite_plots.R             全部绘图（base graphics，不用 ggplot2）
   termite_verify.R            与原脚本的一致性自检
   termite_md.R                极简 Markdown 渲染（不依赖 markdown 包）
   termite_ui.R / _server.R    界面与服务端
 docs/
   PRINCIPLES.md               算法原理与推导
+  IMPORT.md                   数据导入：支持的格式、别名表、内标选择
   FIXES.md                    原脚本问题清单与修改说明
   ORIGINAL_README.md          原仓库 README（存档）
+tools/
+  run_termite.R               命令行批处理入口
 tests/
   test-parity.R               与原脚本的逐位一致性测试
   test-app.R                  Shiny 服务端集成测试

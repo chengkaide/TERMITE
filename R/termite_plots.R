@@ -16,6 +16,16 @@
   muted   = "#718096"
 )
 
+#' 面板太多时截断，并给出说明
+#'
+#' 58 个同位素铺满一页会小到看不清，某些设备上还会直接报
+#' "figure margins too large"。统一在这里限制面板数。
+.limit_panels <- function(idx, max_panels) {
+  if (length(idx) <= max_panels) return(list(idx = idx, note = ""))
+  list(idx = idx[seq_len(max_panels)],
+       note = sprintf("　（共 %d 个，仅显示前 %d 个）", length(idx), max_panels))
+}
+
 #' 原始信号多面板图：每个同位素一格，标出空白区与信号区
 #'
 #' @param rows   要画的**矩阵行号**；NULL 表示全部。
@@ -23,11 +33,19 @@
 #'               用于让横轴、空白区、信号区三者口径一致。
 termite_plot_raw <- function(values, isotopes, blank = NULL, signal = NULL,
                              main = "", log_y = TRUE, rows = NULL,
-                             offset = 0L, xlab = "文件行号") {
+                             offset = 0L, xlab = "文件行号",
+                             which_iso = NULL, max_panels = 16L) {
   n_all <- nrow(values)
   if (is.null(rows)) rows <- seq_len(n_all)
   rows <- rows[rows >= 1L & rows <= n_all]
   if (!length(rows)) rows <- seq_len(min(50L, n_all))
+  if (!is.null(which_iso)) {
+    jj <- match(which_iso, isotopes); jj <- jj[!is.na(jj)]
+    if (length(jj)) { values <- values[, jj, drop = FALSE]; isotopes <- isotopes[jj] }
+  }
+  lim <- .limit_panels(seq_len(ncol(values)), max_panels)
+  values <- values[, lim$idx, drop = FALSE]; isotopes <- isotopes[lim$idx]
+  if (nzchar(lim$note)) main <- paste0(main, lim$note)
   v <- values[rows, , drop = FALSE]
   p <- ncol(v); nc <- min(4L, p); nr <- ceiling(p / nc)
   op <- par(no.readonly = TRUE); on.exit(par(op))
@@ -56,8 +74,16 @@ termite_plot_raw <- function(values, isotopes, blank = NULL, signal = NULL,
 }
 
 #' RSF 逐文件折线 + 均值线（对应原脚本 RSFused_*.pdf）
-termite_plot_rsf <- function(res, main = "RSF（灵敏度因子）") {
+termite_plot_rsf <- function(res, main = "RSF（灵敏度因子）",
+                             isotopes = NULL, max_panels = 16L) {
   d <- res$rsf_per_file
+  if (!is.null(isotopes)) {
+    jj <- match(isotopes, res$isotopes); jj <- jj[!is.na(jj)]
+    if (length(jj)) d <- d[, jj, drop = FALSE]
+  }
+  lim <- .limit_panels(seq_len(ncol(d)), max_panels)
+  d <- d[, lim$idx, drop = FALSE]
+  if (nzchar(lim$note)) main <- paste0(main, lim$note)
   p <- ncol(d); nc <- min(4L, p); nr <- ceiling(p / nc)
   op <- par(no.readonly = TRUE); on.exit(par(op))
   par(mfrow = c(nr, nc), mar = c(3.4, 3.6, 2.0, 0.7), mgp = c(2.1, 0.6, 0),
@@ -95,12 +121,15 @@ termite_plot_lod <- function(res, main = "检出限 LoD") {
 }
 
 #' 点分析：逐元素浓度散点 + 相对标准偏差标红（对应原脚本 Results_*.pdf）
-termite_plot_spot <- function(res, elements = NULL) {
+termite_plot_spot <- function(res, elements = NULL, max_panels = 16L) {
   el  <- res$elements
   keep <- if (is.null(elements)) which(el != res$elements[res$is_idx]) else
     match(elements, el)
   keep <- keep[!is.na(keep)]
+  lim <- .limit_panels(keep, max_panels)
+  keep <- lim$idx
   d <- res$sample$conc_masked[, keep, drop = FALSE]
+  if (nzchar(lim$note)) elements <- NULL
   sd_ <- res$sample$rsd[, keep, drop = FALSE]
   p <- ncol(d); nc <- min(4L, p); nr <- ceiling(p / nc)
   op <- par(no.readonly = TRUE); on.exit(par(op))
@@ -119,16 +148,17 @@ termite_plot_spot <- function(res, elements = NULL) {
     abline(h = res$lod[j], lty = 3, col = .termite_theme$muted)
     box(bty = "l")
   }
-  mtext("红点 = 相对标准偏差高于均值（可疑不均匀点）",
+  mtext(paste0("红点 = 相对标准偏差高于均值（可疑不均匀点）", lim$note),
         outer = TRUE, line = -1.4, cex = 0.9, col = .termite_theme$muted)
 }
 
 #' 线扫描：距离-浓度剖面
-termite_plot_profile <- function(res, elements = NULL, idx = 1L) {
+termite_plot_profile <- function(res, elements = NULL, idx = 1L, max_panels = 12L) {
   prof <- res$line[[idx]]
   el   <- res$elements
   keep <- if (is.null(elements)) which(el != el[res$is_idx]) else match(elements, el)
   keep <- keep[!is.na(keep)]
+  lim <- .limit_panels(keep, max_panels); keep <- lim$idx
   d <- prof$conc_masked[, keep, drop = FALSE]
   p <- ncol(d); nc <- min(3L, p); nr <- ceiling(p / nc)
   op <- par(no.readonly = TRUE); on.exit(par(op))
@@ -146,7 +176,7 @@ termite_plot_profile <- function(res, elements = NULL, idx = 1L) {
     abline(h = res$lod[j], lty = 3, col = .termite_theme$muted)
     box(bty = "l")
   }
-  mtext(sprintf("样品：%s　虚线 = LoD", prof$file),
+  mtext(sprintf("样品：%s　虚线 = LoD%s", prof$file, lim$note),
         outer = TRUE, line = -1.4, cex = 0.9, col = .termite_theme$muted)
 }
 
