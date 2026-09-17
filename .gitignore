@@ -1,0 +1,19 @@
+# RStudio / R 会话状态（示例数据不受影响）
+.Rproj.user/
+.Rproj.user
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+*.Rproj
+
+# 临时文件
+*.log
+*.tmp
+.Renviron
+_rtmp.txt
+
+# 系统
+Thumbs.db
+.DS_Store
+desktop.ini
