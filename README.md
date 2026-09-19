@@ -10,6 +10,24 @@
 
 ---
 
+## 文档导航
+
+**入门手册（强烈建议先读）：[docs/HANDBOOK.html](docs/HANDBOOK.html)**
+
+> 《LA-ICP-MS 微量元素数据处理入门》—— 14 张内联图讲透：归算原理、能测哪些元素（周期表）、
+> 点分析与线扫描的区别、线扫比值剖面、常见处理软件对比、原始脚本为何要不断重写、AI 参与了哪些工作。
+> 全离线可开，示例已脱敏（样品 `S-01…S-40`、批次 `batch_2023`），无任何本地路径。
+
+其余文档按需查阅：
+
+| 想了解 | 读这份 |
+|---|---|
+| 算法原理与公式推导 | [docs/PRINCIPLES.md](docs/PRINCIPLES.md) |
+| 数据导入：支持的格式、别名表、内标选择 | [docs/IMPORT.md](docs/IMPORT.md) |
+| 原脚本的问题清单与修改说明 | [docs/FIXES.md](docs/FIXES.md) |
+
+---
+
 ## 快速开始
 
 ```r
@@ -190,7 +208,7 @@ R/
   termite_md.R                极简 Markdown 渲染（不依赖 markdown 包）
   termite_ui.R / _server.R    界面与服务端
 docs/
-  HANDBOOK.html               入门手册：14 图讲透归算原理、点/线扫描、软件对比（已脱敏）
+  HANDBOOK.html               《LA-ICP-MS 微量元素数据处理入门》14 图讲透归算原理（已脱敏）
   PRINCIPLES.md               算法原理与推导
   IMPORT.md                   数据导入：支持的格式、别名表、内标选择
   FIXES.md                    原脚本问题清单与修改说明

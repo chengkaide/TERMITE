@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>从一块白钨矿到一个数字 · LA-ICP-MS 微量元素入门</title>
+<title>LA-ICP-MS 微量元素数据处理入门</title>
 <style>
   :root{
     --ink:#26251F; --ink2:#5F5E5A; --ink3:#8A8880;
@@ -20,13 +20,28 @@
        font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
        font-size:15.5px;line-height:1.85;
        font-variant-numeric:tabular-nums}
-  .wrap{max-width:960px;margin:0 auto;padding:64px 34px 120px}
-  h1{font-size:29px;font-weight:600;margin:0 0 12px;line-height:1.35;letter-spacing:-.2px}
+  .wrap{max-width:960px;margin:0 auto;padding:56px 34px 120px}
+  .hero{position:relative;margin:0 0 12px;padding:38px 42px 32px;border:1px solid var(--line);
+        border-radius:18px;overflow:hidden;
+        background:
+          radial-gradient(1100px 460px at -12% -40%, #EEEDFE 0%, rgba(238,237,254,0) 58%),
+          radial-gradient(880px 380px at 112% -8%, #E3F5EF 0%, rgba(227,245,239,0) 58%),
+          linear-gradient(180deg,#FBFAF7,#FFFFFF)}
+  .hero::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;
+        background:linear-gradient(90deg,var(--pur),#8B7FE8 40%,var(--tea) 72%,var(--amb))}
+  .hero h1{font-size:32px;font-weight:700;margin:0 0 14px;line-height:1.3;letter-spacing:-.4px}
+  .hero .sub{color:var(--ink2);font-size:16.5px;margin:0 0 18px;line-height:1.75}
+  .hero .meta{display:flex;gap:9px;flex-wrap:wrap;margin:0}
+  .hero .meta span{font-size:12.5px;color:var(--ink2);background:#FFFFFF;
+        border:1px solid var(--line);padding:3px 13px;border-radius:999px}
+  h1{font-size:29px;font-weight:700;margin:0 0 12px;line-height:1.35;letter-spacing:-.2px}
   .sub{color:var(--ink2);font-size:16px;margin:0 0 10px;line-height:1.7}
   .meta{color:var(--ink3);font-size:13px;margin:0 0 36px}
-  h2{font-size:21.5px;font-weight:600;margin:62px 0 16px;padding-top:26px;
-     border-top:1px solid var(--line);letter-spacing:-.1px}
+  h2{font-size:23px;font-weight:700;margin:58px 0 18px;padding-top:22px;
+     border-top:2px solid var(--line);letter-spacing:-.2px;position:relative}
+  h2::before{content:"";position:absolute;top:-2px;left:0;width:64px;height:2px;background:var(--pur)}
   h2:first-of-type{border-top:none;padding-top:0;margin-top:0}
+  h2:first-of-type::before{display:none}
   h3{font-size:17px;font-weight:600;margin:36px 0 10px}
   h4{font-size:15.5px;font-weight:600;margin:26px 0 8px;color:var(--ink2)}
   p{margin:0 0 15px}
@@ -66,28 +81,34 @@
            padding:15px 18px;font-family:Consolas,Menlo,monospace;font-size:13.5px;
            line-height:2.05;overflow-x:auto;margin:0 0 18px}
   figure{margin:30px 0 34px}
-  figure svg{display:block;width:100%;height:auto;border-radius:12px}
+  figure svg{display:block;width:100%;height:auto;border-radius:12px;
+             border:1px solid var(--line);box-shadow:0 2px 8px rgba(38,37,31,.06)}
   figcaption{color:var(--ink2);font-size:13.5px;margin-top:11px;line-height:1.7}
-  .toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-       padding:20px 26px;margin:0 0 40px}
-  .toc h2{font-size:14px;font-weight:600;margin:0 0 12px;padding:0;border:none;
-          color:var(--ink3);letter-spacing:.04em}
-  .toc ol{margin:0;padding-left:20px;font-size:14.5px;line-height:2}
-  .toc ol ol{padding-left:18px;font-size:13.5px;line-height:1.85;margin:2px 0 6px;
-             list-style:none}
+  .toc{background:linear-gradient(180deg,#F8F7F4,#F2F1EB);border:1px solid var(--line);
+       border-radius:14px;padding:24px 28px;margin:0 0 42px}
+  .toc h2{font-size:13px;font-weight:700;margin:0 0 14px;padding:0;border:none;
+          color:var(--ink3);letter-spacing:.08em}
+  .toc ol{margin:0;padding-left:22px;font-size:14.5px;line-height:1.9;columns:2;column-gap:44px}
+  .toc ol li{break-inside:avoid;margin:0 0 9px}
+  .toc ol ol{padding-left:18px;font-size:13px;line-height:1.8;margin:2px 0 8px;list-style:none;columns:1}
   .toc a{border-bottom:none}
-  .toc a:hover{border-bottom:1px solid var(--purline)}
+  .toc a:hover{color:var(--pur);border-bottom:1px solid var(--purline)}
   .k{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 22px}
-  .k div{flex:1 1 150px;background:var(--panel);border:1px solid var(--line);
-         border-radius:10px;padding:11px 14px;font-size:13px;color:var(--ink2)}
-  .k b{display:block;font-size:17px;color:var(--ink);font-weight:600;margin-top:2px}
-  .step{margin:0 0 26px;padding:0 0 0 18px;border-left:2px solid var(--purline)}
+  .k div{flex:1 1 150px;background:linear-gradient(180deg,#FFFFFF,#F7F6F2);
+         border:1px solid var(--line);border-radius:12px;padding:12px 15px;
+         font-size:13px;color:var(--ink2);box-shadow:0 1px 2px rgba(38,37,31,.03)}
+  .k b{display:block;font-size:18px;color:var(--pur);font-weight:700;margin-top:3px;
+       font-variant-numeric:tabular-nums}
+  .step{margin:0 0 24px;padding:16px 20px 10px;border-left:3px solid var(--pur);
+        background:linear-gradient(90deg,#F7F6FD,rgba(247,246,253,0));border-radius:0 12px 12px 0}
   .step h3{margin-top:0}
   .where{font-size:13px;color:var(--ink3);font-family:Consolas,Menlo,monospace;
          margin:-4px 0 12px}
   hr{border:none;border-top:1px solid var(--line);margin:44px 0}
   .sig{color:var(--ink2);font-size:14px;margin-top:44px;padding-top:20px;
        border-top:1px solid var(--line)}
+  :target{animation:flash 1.8s ease}
+  @keyframes flash{0%{background-color:#FFF3CF}100%{background-color:transparent}}
   @media print{
     body{font-size:11pt}
     .wrap{max-width:none;padding:0}
@@ -100,9 +121,11 @@
 <body>
 <div class="wrap">
 
-<h1>从一块白钨矿到一个数字</h1>
-<p class="sub">LA-ICP-MS 微量元素数据处理入门 —— 以 TERMITE 的源码和一批真实白钨矿数据为例</p>
-<p class="meta">TERMITE 用户手册 · 入门篇 &nbsp;|&nbsp; 全部数字来自一批实测白钨矿数据（40 个样品点）与原仓库自带的线扫示例</p>
+<header class="hero">
+<h1>LA-ICP-MS 微量元素数据处理入门</h1>
+<p class="sub">以 TERMITE 的源码和一批真实白钨矿数据为例 —— 从一块白钨矿到一个数字</p>
+<p class="meta"><span>TERMITE 用户手册 · 入门篇</span><span>40 个真实样品点</span><span>14 幅插图 · 全离线可开</span></p>
+</header>
 
 <div class="lead">
 <p>这份文档写给第一次接触激光剥蚀电感耦合等离子体质谱（LA-ICP-MS）微量元素分析的人 ——
@@ -1777,6 +1800,7 @@ USGS 的 BIR-1G、BCR-2G、BHVO-2G 不在其中，所以本批数据的监控样
 直接计算坐标生成，没有手绘数据点；样品号与数据目录已做脱敏处理，
 数值未做任何改动。本文档由 AI 起草、经逐位数值核对（见第 13 章），
 不依赖任何外部资源，可离线打开。</p>
+<p style="text-align:right;margin:22px 0 0"><a href="#" style="border:none">↑ 回到顶部</a></p>
 </div>
 
 
