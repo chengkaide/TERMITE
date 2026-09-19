@@ -190,7 +190,7 @@ R/
   termite_md.R                极简 Markdown 渲染（不依赖 markdown 包）
   termite_ui.R / _server.R    界面与服务端
 docs/
-  HANDBOOK.html               入门手册：结合真实白钨矿数据的科普与结果判读
+  HANDBOOK.html               入门手册：14 图讲透归算原理、点/线扫描、软件对比（已脱敏）
   PRINCIPLES.md               算法原理与推导
   IMPORT.md                   数据导入：支持的格式、别名表、内标选择
   FIXES.md                    原脚本问题清单与修改说明

@@ -102,7 +102,7 @@
 
 <h1>从一块白钨矿到一个数字</h1>
 <p class="sub">LA-ICP-MS 微量元素数据处理入门 —— 以 TERMITE 的源码和一批真实白钨矿数据为例</p>
-<p class="meta">TERMITE 用户手册 · 入门篇 &nbsp;|&nbsp; 全部数字来自 <code>G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA</code> 实测数据</p>
+<p class="meta">TERMITE 用户手册 · 入门篇 &nbsp;|&nbsp; 全部数字来自一批实测白钨矿数据（40 个样品点）与原仓库自带的线扫示例</p>
 
 <div class="lead">
 <p>这份文档写给第一次接触激光剥蚀电感耦合等离子体质谱（LA-ICP-MS）微量元素分析的人 ——
@@ -111,6 +111,9 @@
 <strong>屏幕上那个数是怎么来的，我该怎么判断它能不能用。</strong></p>
 <p>所以本文对每一步都会回答两个问题：<em>为什么需要这一步</em>，以及
 <em>不做会怎样</em>。凡是能配上真实数字的地方都配了，凡是这个工具做不到的地方都直说了。</p>
+<p><strong>关于脱敏：</strong>文中样品号统一写作 <code>S-01…S-40</code>、批次写作
+<code>batch_2023</code>、数据目录写作 <code>&lt;你的数据目录&gt;</code> ——
+这些是代号，数值本身全部来自真实测量，未做任何改动。</p>
 </div>
 
 <div class="toc">
@@ -119,19 +122,24 @@
   <li><a href="#c1">这份文档想解决什么问题</a></li>
   <li><a href="#c2">先破除三个误解</a></li>
   <li><a href="#c3">这批数据长什么样</a></li>
-  <li><a href="#c4">质谱真正测到的是什么：cps 与 gas blank</a></li>
-  <li><a href="#c5">七步归算：从计数率到 µg/g</a>
+  <li><a href="#c4">能测什么元素：从一张周期表看起</a></li>
+  <li><a href="#c5">质谱真正测到的是什么：cps 与 gas blank</a></li>
+  <li><a href="#c6">七步归算：从计数率到 µg/g</a>
     <ol>
       <li><a href="#s1">① 扣背景</a> · <a href="#s2">② 内标归一</a> · <a href="#s3">③ 离群剔除</a></li>
       <li><a href="#s4">④ 同位素换算</a> · <a href="#s5">⑤ 乘内标含量</a> · <a href="#s6">⑥ 除以 RSF</a> · <a href="#s7">⑦ 检出限截断</a></li>
       <li><a href="#s8">一个测点的完整数字轨迹</a></li>
     </ol>
   </li>
-  <li><a href="#c6">为什么必须有参考物质</a></li>
-  <li><a href="#c7">内标怎么选：最容易出错的一步</a></li>
-  <li><a href="#c8">结果怎么读：NA、0、LoD 各是什么意思</a></li>
-  <li><a href="#c9">动手做一遍</a></li>
-  <li><a href="#c10">这个工具做不到什么</a></li>
+  <li><a href="#c7">为什么必须有参考物质</a></li>
+  <li><a href="#c8">内标怎么选：最容易出错的一步</a></li>
+  <li><a href="#c9">结果怎么读：NA、0、LoD 各是什么意思</a></li>
+  <li><a href="#c10">点分析 vs 线扫描：两种提问方式</a></li>
+  <li><a href="#c11">常见处理软件，以及这个工具的位置</a></li>
+  <li><a href="#c12">原始脚本为什么要被不断更新</a></li>
+  <li><a href="#c13">AI 参与了哪些工作（诚实版）</a></li>
+  <li><a href="#c14">动手做一遍</a></li>
+  <li><a href="#c15">这个工具做不到什么</a></li>
   <li><a href="#a1">附录 A · 术语与符号</a></li>
   <li><a href="#a2">附录 B · 每个数字的出处</a></li>
 </ol>
@@ -154,7 +162,9 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 这些假设在任何一次计算里都成立不了 —— 只能判断它们离现实有多远。</p>
 
 <p>TERMITE 是一个把这件事做完的工具。它的原始版本是 Simon Mischel 等人 2017 年发布的
-一批 R 脚本，这个仓库把它重写成了一个可以交互使用的应用，并修正了原脚本中的若干错误。</p>
+一批 R 脚本，这个仓库把它重写成了一个可以交互使用的应用，并修正了原脚本中的若干错误。
+本文会用<strong>一批真实的白钨矿点分析数据（40 个样品）</strong>和
+<strong>原仓库自带的线扫示例数据</strong>，把整条链路走一遍。</p>
 
 <h3>三种读法</h3>
 
@@ -164,14 +174,17 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 <thead><tr><th>你的处境</th><th>读这些</th><th>大约解决什么</th></tr></thead>
 <tbody>
 <tr><td><b>急着把数据跑出来</b></td>
-    <td><a href="#c3">第 3 章</a> → <a href="#c7">第 7 章</a> → <a href="#c9">第 9 章</a></td>
+    <td><a href="#c3">第 3 章</a> → <a href="#c8">第 8 章</a> → <a href="#c14">第 14 章</a></td>
     <td>数据放哪、参数怎么填、结果在哪、哪些数不能信</td></tr>
 <tr><td><b>想弄明白原理</b></td>
-    <td><a href="#c2">第 2 章</a> → <a href="#c4">第 4 章</a> → <a href="#c5">第 5 章</a> → <a href="#c6">第 6 章</a></td>
+    <td><a href="#c2">第 2 章</a> → <a href="#c5">第 5 章</a> → <a href="#c6">第 6 章</a> → <a href="#c7">第 7 章</a></td>
     <td>为什么是这七步、每一步消掉了什么、误差从哪来</td></tr>
+<tr><td><b>想知道用哪个软件</b></td>
+    <td><a href="#c4">第 4 章</a> → <a href="#c10">第 10 章</a> → <a href="#c11">第 11 章</a></td>
+    <td>能测什么元素、点分析和线扫怎么选、各家软件的差异</td></tr>
 <tr><td><b>要审这份代码</b></td>
-    <td><a href="#c5">第 5 章</a> → <a href="#c8">第 8 章</a> → <a href="#a2">附录 B</a></td>
-    <td>每段公式对应哪个函数、每个数字能在哪一行复现</td></tr>
+    <td><a href="#c6">第 6 章</a> → <a href="#c9">第 9 章</a> → <a href="#c13">第 13 章</a> → <a href="#a2">附录 B</a></td>
+    <td>每段公式对应哪个函数、每个数字能在哪一行复现、AI 做了什么</td></tr>
 </tbody>
 </table>
 
@@ -194,7 +207,7 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 <strong>这些量没有一个是你知道的，而且它们对不同元素取不同值。</strong></p>
 
 <p>所以 cps 和含量之间隔着一整条链条。TERMITE 的全部工作，就是想办法把这条链条整体消掉，
-而不是去逐段测量它。第 <a href="#c6">6 章</a>会讲它用的是什么办法。</p>
+而不是去逐段测量它。第 <a href="#c7">7 章</a>会讲它用的是什么办法。</p>
 
 <h3>误解二：有一个"正确答案"等着被算出来</h3>
 
@@ -219,7 +232,7 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 <thead><tr><th>类型</th><th>例子</th><th>怎么对待</th></tr></thead>
 <tbody>
 <tr><td><b>真的测出来了</b></td>
-    <td>19SH-43-5 的 La = 64.2 µg/g</td>
+    <td>样品 S-01 的 La = 64.2 µg/g</td>
     <td>可以用，但要报不确定度</td></tr>
 <tr><td><b>测不到，被明确标成 NA</b></td>
     <td>同一个样品的 Li：空白 1600 cps、剥蚀段 1639 cps，扣完是负的</td>
@@ -233,14 +246,14 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 <div class="warn">
 <p><b>第三类最容易被误用。</b>内标元素自己那一列，在 40 个样品里显示出完全相同的值，
 看上去"数据质量极好、样品非常均一"。实际上它只是把你输入的数字抄了 40 遍。
-本文第 <a href="#c8">8 章</a>会再强调一次。</p>
+本文第 <a href="#c9">9 章</a>会再强调一次。</p>
 </div>
 
 <h2 id="c3">3. 这批数据长什么样</h2>
 
-<p>先把要处理的东西看清楚。这一批数据在：</p>
-
-<pre><code>G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA/</code></pre>
+<p>先把要处理的东西看清楚。这一批数据放在本机的某个目录里
+（本文写作 <code>&lt;你的数据目录&gt;</code>），里面是 Qtegra 导出的 65 个测点文件
+加 1 个序列表：</p>
 
 <div class="k">
 <div>文件总数<b>66</b>（65 个测点 + 1 个序列表）</div>
@@ -251,9 +264,9 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 <div>每个文件的数据行<b>115</b></div>
 </div>
 
-<p>目录名里写着"锡石-白钨矿"，这是人的命名习惯。但数据本身告诉我们：
+<p>数据的原始目录名里写着矿物种类的猜测，但那是人的命名习惯。数据本身告诉我们：
 <strong>这 40 个样品全部是白钨矿</strong>，一个锡石都没有。
-怎么判断的，见第 <a href="#c7">7 章</a> —— 那是本文最有用的一个技巧。</p>
+怎么判断的，见第 <a href="#c8">8 章</a> —— 那是本文最有用的一个技巧。</p>
 
 <h3>3.1 仪器导出的是什么格式</h3>
 
@@ -262,8 +275,8 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
 而这批是 58 个同位素、表头在第 14 行、数据在第 16 行。</p>
 
 <figure>
-<svg viewBox="0 0 900 456" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">Qtegra 导出的文件长什么样（20230806CKDA_10.csv）</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">TERMITE 不靠行号读文件，而是靠内容找表头和数据；所以元数据行数变了也没关系。</text><rect x="30.0" y="56.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="73.0" font-size="12" fill="#534AB7" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">1</text><text x="64.0" y="73.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">19SH-43-5:08/06/2023 03:25:47 AM;</text><text x="872.0" y="73.0" font-size="11.5" fill="#534AB7" text-anchor="end" font-weight="normal">样品名在这里</text><rect x="30.0" y="96.0" width="840.0" height="38.0" fill="none" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="113.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">2</text><text x="64.0" y="113.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Software:Name=Qtegra;Version=2.8.3170.309;…</text><text x="872.0" y="113.0" font-size="11.5" fill="#888780" text-anchor="end" font-weight="normal">仪器元数据</text><rect x="30.0" y="136.0" width="840.0" height="38.0" fill="none" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="153.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">3</text><text x="64.0" y="153.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Configuration:Machine=iCAP RQ;</text><text x="872.0" y="153.0" font-size="11.5" fill="#888780" text-anchor="end" font-weight="normal">仪器元数据</text><rect x="30.0" y="176.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="193.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">…</text><text x="64.0" y="193.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">（第 4–13 行：STD / RF / Ion Optics / Vacuum / Detector / …）</text><text x="872.0" y="193.0" font-size="11.5" fill="#888780" text-anchor="end" font-weight="normal">约 10 行，全部跳过</text><rect x="30.0" y="216.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="233.0" font-size="12" fill="#0F6E56" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">14</text><text x="64.0" y="233.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Time,7Li,9Be,11B,23Na,25Mg,…,232Th,238U,</text><text x="872.0" y="233.0" font-size="11.5" fill="#0F6E56" text-anchor="end" font-weight="normal">表头：58 个通道，末尾多一个逗号</text><rect x="30.0" y="256.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="273.0" font-size="12" fill="#854F0B" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">15</text><text x="64.0" y="273.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">,dwell time=0.01;xcal factor=53845.6,…</text><text x="872.0" y="273.0" font-size="11.5" fill="#854F0B" text-anchor="end" font-weight="normal">每通道元数据，不是数字，跳过</text><rect x="30.0" y="296.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="313.0" font-size="12" fill="#534AB7" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">16</text><text x="64.0" y="313.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">0.01324,1300.06760351538,0,500.0100002,…</text><text x="872.0" y="313.0" font-size="11.5" fill="#534AB7" text-anchor="end" font-weight="normal">第一条数据（时间 + 58 个 cps）</text><rect x="30.0" y="336.0" width="840.0" height="26.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="353.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">…</text><text x="64.0" y="353.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">（第 17–130 行：其余 114 条数据）</text><line x1="30.0" y1="382.0" x2="870.0" y2="382.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="404.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">程序怎么认：找第一个字段以 Time 开头、且至少 3 列的那一行当表头；</text><text x="30.0" y="422.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">再往下找「字段数对得上、且第二个字段能转成数字」的第一行当数据起点 —— 中间那行元数据就这样被自然跳过。</text><text x="30.0" y="440.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">样品名从第 1 行冒号之前读，判据是「冒号后面跟日期」，不会把含冒号的路径误认成样品名。</text></svg>
-<figcaption><b>图 8</b>　Qtegra 导出文件的结构。程序靠内容而不是行号定位表头与数据，所以元数据行数变了也不影响。</figcaption>
+<svg viewBox="0 0 900 456" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">Qtegra 导出的文件长什么样（sample_10.csv，示意）</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">TERMITE 不靠行号读文件，而是靠内容找表头和数据；所以元数据行数变了也没关系。</text><rect x="30.0" y="56.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="73.0" font-size="12" fill="#534AB7" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">1</text><text x="64.0" y="73.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">S-01:08/06/2023 03:25:47 AM;</text><text x="872.0" y="73.0" font-size="11.5" fill="#534AB7" text-anchor="end" font-weight="normal">样品名在这里</text><rect x="30.0" y="96.0" width="840.0" height="38.0" fill="none" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="113.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">2</text><text x="64.0" y="113.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Software:Name=Qtegra;Version=2.8.3170.309;…</text><text x="872.0" y="113.0" font-size="11.5" fill="#888780" text-anchor="end" font-weight="normal">仪器元数据</text><rect x="30.0" y="136.0" width="840.0" height="38.0" fill="none" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="153.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">3</text><text x="64.0" y="153.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Configuration:Machine=iCAP RQ;</text><text x="872.0" y="153.0" font-size="11.5" fill="#888780" text-anchor="end" font-weight="normal">仪器元数据</text><rect x="30.0" y="176.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="193.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">…</text><text x="64.0" y="193.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">（第 4–13 行：STD / RF / Ion Optics / Vacuum / Detector / …）</text><text x="872.0" y="193.0" font-size="11.5" fill="#888780" text-anchor="end" font-weight="normal">约 10 行，全部跳过</text><rect x="30.0" y="216.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="233.0" font-size="12" fill="#0F6E56" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">14</text><text x="64.0" y="233.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Time,7Li,9Be,11B,23Na,25Mg,…,232Th,238U,</text><text x="872.0" y="233.0" font-size="11.5" fill="#0F6E56" text-anchor="end" font-weight="normal">表头：58 个通道，末尾多一个逗号</text><rect x="30.0" y="256.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="273.0" font-size="12" fill="#854F0B" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">15</text><text x="64.0" y="273.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">,dwell time=0.01;xcal factor=53845.6,…</text><text x="872.0" y="273.0" font-size="11.5" fill="#854F0B" text-anchor="end" font-weight="normal">每通道元数据，不是数字，跳过</text><rect x="30.0" y="296.0" width="840.0" height="38.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="313.0" font-size="12" fill="#534AB7" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">16</text><text x="64.0" y="313.0" font-size="11.5" fill="#2C2C2A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">0.01324,1300.06760351538,0,500.0100002,…</text><text x="872.0" y="313.0" font-size="11.5" fill="#534AB7" text-anchor="end" font-weight="normal">第一条数据（时间 + 58 个 cps）</text><rect x="30.0" y="336.0" width="840.0" height="26.0" fill="#F7F6F3" stroke="none" stroke-width="1" rx="7"/><text x="52.0" y="353.0" font-size="12" fill="#888780" text-anchor="end" font-weight="600" font-family="Consolas,Menlo,monospace">…</text><text x="64.0" y="353.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">（第 17–130 行：其余 114 条数据）</text><line x1="30.0" y1="382.0" x2="870.0" y2="382.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="404.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">程序怎么认：找第一个字段以 Time 开头、且至少 3 列的那一行当表头；</text><text x="30.0" y="422.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">再往下找「字段数对得上、且第二个字段能转成数字」的第一行当数据起点 —— 中间那行元数据就这样被自然跳过。</text><text x="30.0" y="440.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">样品名从第 1 行冒号之前读，判据是「冒号后面跟日期」，不会把含冒号的路径误认成样品名。</text></svg>
+<figcaption><b>图 8</b>　Qtegra 导出文件的结构（样品名已脱敏）。程序靠内容而不是行号定位表头与数据，所以元数据行数变了也不影响。</figcaption>
 </figure>
 
 <h3>3.2 三个数字必须先分清</h3>
@@ -281,7 +294,7 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
     <td>Qtegra 会在数据前插一行 dwell/xcal 元数据，行数不固定</td></tr>
 <tr><td>样品叫什么</td>
     <td>第 1 行冒号之前的内容，且要求冒号后面跟日期</td>
-    <td>文件名（<code>20230806CKDA_10</code>）和样品名（<code>19SH-43-5</code>）不一样</td></tr>
+    <td>文件名（<code>sample_10.csv</code>）和样品名（<code>S-01</code>）不一样</td></tr>
 </tbody>
 </table>
 
@@ -305,7 +318,7 @@ LA-ICP-MS 不像称重或滴定，它测的是一个相对信号。要把相对�
     <td class="n">BIR-1G、BCR-2G、BHVO-2G</td><td class="r">15</td>
     <td><b>不参与 RSF</b>，只报回收率，用来判断这一批稳不稳</td></tr>
 <tr><td><b>样品</b><br><code>kind = sample</code></td>
-    <td class="n">19SH-43-1…10、19SH-63-1…5、<br>19SH-7-1…5、19SH-Calc-Sch-1…20</td><td class="r">40</td>
+    <td class="n">S-01 … S-40</td><td class="r">40</td>
     <td>要出结果的对象</td></tr>
 </tbody>
 </table>
@@ -327,17 +340,60 @@ BIR-1G、BCR-2G、BHVO-2G 都有国际公认的推荐值。虽然本仓库自带
 这个差值就是基体效应的直接量度。</p>
 </div>
 
+<h2 id="c4">4. 能测什么元素：从一张周期表看起</h2>
 
-<h2 id="c4">4. 质谱真正测到的是什么：cps 与 gas blank</h2>
+<p>在钻进公式之前，先回答一个更朴素的问题：这台仪器到底能测哪些元素？
+哪些是"测了就有数"，哪些是"测了也白测"？看图说话比背清单快。</p>
+
+<figure>
+<svg viewBox="0 0 900 470" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">LA-ICP-MS 能测的元素，以及这一批白钨矿里真正测得到的</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">绿 = 40/40 基本都有值　黄 = 少量有值　红 = 本批测不到　灰 = 本批未测（或质谱难以直接测的轻元素/卤素/气体）</text><rect x="60.0" y="64.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="82.0" y="89.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Li</text><rect x="106.0" y="64.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="128.0" y="89.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Be</text><rect x="612.0" y="64.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="634.0" y="89.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">B</text><rect x="658.0" y="64.0" width="44.0" height="40.0" fill="#EDEBE4" stroke="#C9C6BC" stroke-width="1" rx="5"/><text x="680.0" y="89.0" font-size="13" fill="#C9C6BC" text-anchor="middle" font-weight="600">C</text><rect x="704.0" y="64.0" width="44.0" height="40.0" fill="#EDEBE4" stroke="#C9C6BC" stroke-width="1" rx="5"/><text x="726.0" y="89.0" font-size="13" fill="#C9C6BC" text-anchor="middle" font-weight="600">N</text><rect x="750.0" y="64.0" width="44.0" height="40.0" fill="#EDEBE4" stroke="#C9C6BC" stroke-width="1" rx="5"/><text x="772.0" y="89.0" font-size="13" fill="#C9C6BC" text-anchor="middle" font-weight="600">O</text><rect x="796.0" y="64.0" width="44.0" height="40.0" fill="#EDEBE4" stroke="#C9C6BC" stroke-width="1" rx="5"/><text x="818.0" y="89.0" font-size="13" fill="#C9C6BC" text-anchor="middle" font-weight="600">F</text><rect x="60.0" y="106.0" width="44.0" height="40.0" fill="#FAEEDA" stroke="#854F0B" stroke-width="1" rx="5"/><text x="82.0" y="131.0" font-size="13" fill="#854F0B" text-anchor="middle" font-weight="600">Na</text><rect x="106.0" y="106.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="128.0" y="131.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">Mg</text><rect x="612.0" y="106.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="634.0" y="131.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Al</text><rect x="658.0" y="106.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="680.0" y="131.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Si</text><rect x="704.0" y="106.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="726.0" y="131.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">P</text><rect x="750.0" y="106.0" width="44.0" height="40.0" fill="#EDEBE4" stroke="#C9C6BC" stroke-width="1" rx="5"/><text x="772.0" y="131.0" font-size="13" fill="#C9C6BC" text-anchor="middle" font-weight="600">S</text><rect x="796.0" y="106.0" width="44.0" height="40.0" fill="#EDEBE4" stroke="#C9C6BC" stroke-width="1" rx="5"/><text x="818.0" y="131.0" font-size="13" fill="#C9C6BC" text-anchor="middle" font-weight="600">Cl</text><rect x="60.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="82.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">K</text><rect x="106.0" y="148.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="128.0" y="173.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">Ca</text><rect x="152.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="174.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Sc</text><rect x="198.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="220.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Ti</text><rect x="244.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="266.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">V</text><rect x="290.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="312.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Cr</text><rect x="336.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="358.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Mn</text><rect x="382.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="404.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Fe</text><rect x="428.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="450.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Co</text><rect x="474.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="496.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Ni</text><rect x="520.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="542.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Cu</text><rect x="566.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="588.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Zn</text><rect x="612.0" y="148.0" width="44.0" height="40.0" fill="#FAEEDA" stroke="#854F0B" stroke-width="1" rx="5"/><text x="634.0" y="173.0" font-size="13" fill="#854F0B" text-anchor="middle" font-weight="600">Ga</text><rect x="658.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="680.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Ge</text><rect x="704.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="726.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">As</text><rect x="750.0" y="148.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="772.0" y="173.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Se</text><rect x="60.0" y="190.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="82.0" y="215.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Rb</text><rect x="106.0" y="190.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="128.0" y="215.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">Sr</text><rect x="152.0" y="190.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="174.0" y="215.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">Y</text><rect x="198.0" y="190.0" width="44.0" height="40.0" fill="#FAEEDA" stroke="#854F0B" stroke-width="1" rx="5"/><text x="220.0" y="215.0" font-size="13" fill="#854F0B" text-anchor="middle" font-weight="600">Zr</text><rect x="244.0" y="190.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="266.0" y="215.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">Nb</text><rect x="290.0" y="190.0" width="44.0" height="40.0" fill="#FAEEDA" stroke="#854F0B" stroke-width="1" rx="5"/><text x="312.0" y="215.0" font-size="13" fill="#854F0B" text-anchor="middle" font-weight="600">Mo</text><rect x="566.0" y="190.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="588.0" y="215.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Cd</text><rect x="612.0" y="190.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="634.0" y="215.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">In</text><rect x="658.0" y="190.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="680.0" y="215.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Sn</text><rect x="704.0" y="190.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="726.0" y="215.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Sb</text><rect x="60.0" y="232.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="82.0" y="257.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Cs</text><rect x="106.0" y="232.0" width="44.0" height="40.0" fill="#FAEEDA" stroke="#854F0B" stroke-width="1" rx="5"/><text x="128.0" y="257.0" font-size="13" fill="#854F0B" text-anchor="middle" font-weight="600">Ba</text><rect x="152.0" y="232.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="174.0" y="257.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">La</text><rect x="198.0" y="232.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="220.0" y="257.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Hf</text><rect x="244.0" y="232.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="266.0" y="257.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">Ta</text><rect x="290.0" y="232.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="312.0" y="257.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="600">W</text><rect x="658.0" y="232.0" width="44.0" height="40.0" fill="#FAEEDA" stroke="#854F0B" stroke-width="1" rx="5"/><text x="680.0" y="257.0" font-size="13" fill="#854F0B" text-anchor="middle" font-weight="600">Pb</text><rect x="704.0" y="232.0" width="44.0" height="40.0" fill="#FDF6F6" stroke="#A32D2D" stroke-width="1" rx="5"/><text x="726.0" y="257.0" font-size="13" fill="#A32D2D" text-anchor="middle" font-weight="600">Bi</text><text x="56.0" y="300.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal">镧系</text><rect x="148.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="170.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">La</text><rect x="194.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="216.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Ce</text><rect x="240.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="262.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Pr</text><rect x="286.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="308.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Nd</text><rect x="332.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="354.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Sm</text><rect x="378.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="400.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Eu</text><rect x="424.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="446.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Gd</text><rect x="470.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="492.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Tb</text><rect x="516.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="538.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Dy</text><rect x="562.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="584.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Ho</text><rect x="608.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="630.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Er</text><rect x="654.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="676.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Tm</text><rect x="700.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="722.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Yb</text><rect x="746.0" y="280.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="768.0" y="305.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Lu</text><text x="56.0" y="342.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal">锕系</text><rect x="148.0" y="322.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="170.0" y="347.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">Th</text><rect x="194.0" y="322.0" width="44.0" height="40.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="5"/><text x="216.0" y="347.0" font-size="12.5" fill="#0F6E56" text-anchor="middle" font-weight="600">U</text><rect x="30.0" y="414.0" width="840.0" height="40.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="44.0" y="434.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">绿的一串（Mg、Ca、Sr、Y、REE、Nb、Ta、Th、U）几乎全在白钨矿 CaWO₄ 能容纳的晶格位置上 —— </text><text x="44.0" y="449.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">有值与否是晶体化学的镜子：测不到 ≠ 程序坏了，往往是矿物里本来就极少。</text></svg>
+<figcaption><b>图 9</b>　LA-ICP-MS 可测元素与本批白钨矿的实测情况。绿色 = 40/40 有值，黄色 = 少量有值，红色 = 本批测不到，灰色 = 本批未测。绿格的分布本身就是晶体化学信息。</figcaption>
+</figure>
+
+<h3>4.1 三件事决定了"绿"和"红"</h3>
+
+<p>上图里绿格和红格的分界，不是仪器档次问题，而是三件事叠加的结果：</p>
+
+<ol>
+<li><b>仪器能数到它吗。</b>四极杆质谱覆盖 Li(7) 到 U(238) 的质量范围，
+但 C、N、O、卤素这些轻元素要么被空气本底淹没、要么电离效率太低，
+LA-ICP-MS 一般不碰。这一层把"可测元素"圈在了周期表的中部。</li>
+<li><b>它的信号能从本底里露头吗。</b>即使通道开着，如果样品里含量太低、
+或者本底太高（29Si 那种 57 万 cps 的恒定本底），扣完背景还是负数 ——
+这一层把"可测"进一步收缩成"这批数据里测得到"。</li>
+<li><b>矿物愿意容纳它吗。</b>白钨矿 CaWO<sub>4</sub> 的晶格只给特定半径和电荷的
+离子留位置：大离子进 Ca<sup>2+</sup> 位（Sr、Pb、REE、Y、Na），
+六次配位的高价离子进 W<sup>6+</sup> 位（Nb、Ta、Mo）。
+所以"绿格"的分布本身就是一条晶体化学信息。</li>
+</ol>
+
+<div class="note">
+<p><b>这张图怎么用。</b>拿到任何一批新数据，先别急着看浓度，
+先画一张这样的"有值比例"图（<a href="#c9">第 9 章</a>的图 7 就是它的完整版）。
+如果绿格出现在晶体化学解释不了的位置，那大概率是参数填错了 ——
+比逐个检查 58 列数字快得多。</p>
+</div>
+
+<h3>4.2 同一个元素可能有好几个通道</h3>
+
+<p>周期表上一格是一个<em>元素</em>，质谱测的却是<em>同位素</em>。
+本批 58 个通道里，Se 就占了两个（77Se、82Se）。通道越多，受干扰的机会也越多：
+比如白钨矿里 W 含量极高，<sup>182</sup>W 的丰度灵敏度拖尾会直接压在相邻质量数的
+Ta、Re 通道上 —— 这是文献里白钨矿数据最著名的坑之一。
+工具不会自动帮你修干扰，所以<strong>选通道本身就是分析决策</strong>，
+第 <a href="#c9">9 章</a>的检查表里会再遇到它。</p>
+
+
+<h2 id="c5">5. 质谱真正测到的是什么：cps 与 gas blank</h2>
 
 <p>在讲怎么算之前，先看清楚"被算的东西"长什么样。这不是多余的一步 ——
 后面所有让人困惑的现象（为什么这个元素是 NA、为什么那个元素的值不能信），
 答案都藏在这一章里。</p>
 
-<h3>4.1 从一块矿物到一列数字</h3>
+<h3>5.1 从一块矿物到一列数字</h3>
 
 <figure>
-<svg viewBox="0 0 900 300" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="30.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">从一块矿物到一个数字：LA-ICP-MS 中间发生了什么</text><text x="30.0" y="50.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">每一格都在丢东西，而且丢的比例因元素而异</text><rect x="30.0" y="82.0" width="106.0" height="86.0" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" rx="9"/><text x="83.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">激光</text><text x="83.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">213 nm 紫外</text><text x="83.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">把固体剥蚀成</text><text x="83.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">气溶胶颗粒</text><line x1="138.0" y1="125.0" x2="152.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="152.0,125.0 145.6,127.9 145.6,122.1" fill="#888780"/><rect x="154.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="207.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">样品室</text><text x="207.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">He 载气</text><text x="207.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">把颗粒吹出</text><text x="207.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">剥蚀坑</text><line x1="262.0" y1="125.0" x2="276.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="276.0,125.0 269.6,127.9 269.6,122.1" fill="#888780"/><rect x="278.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="331.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">进样</text><text x="331.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">气溶胶</text><text x="331.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">约 15–30%</text><text x="331.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">到达等离子体</text><line x1="386.0" y1="125.0" x2="400.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="400.0,125.0 393.6,127.9 393.6,122.1" fill="#888780"/><rect x="402.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="455.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">ICP</text><text x="455.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">6000–10000 K</text><text x="455.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">把原子电离成</text><text x="455.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">一价正离子</text><line x1="510.0" y1="125.0" x2="524.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="524.0,125.0 517.6,127.9 517.6,122.1" fill="#888780"/><rect x="526.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="579.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">四极杆</text><text x="579.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">按 m/z 筛选</text><text x="579.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">同一时刻只</text><text x="579.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">放行一个质量</text><line x1="634.0" y1="125.0" x2="648.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="648.0,125.0 641.6,127.9 641.6,122.1" fill="#888780"/><rect x="650.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="703.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">检测器</text><text x="703.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">电子倍增</text><text x="703.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">数离子个数</text><text x="703.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">（离散脉冲）</text><line x1="758.0" y1="125.0" x2="772.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="772.0,125.0 765.6,127.9 765.6,122.1" fill="#888780"/><rect x="774.0" y="82.0" width="106.0" height="86.0" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" rx="9"/><text x="827.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">结果</text><text x="827.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">cps</text><text x="827.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">每秒多少计数</text><text x="827.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">即计数率</text><line x1="30.0" y1="200.0" x2="870.0" y2="200.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="222.0" font-size="12.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">这些环节的未知量（剥蚀量、传输效率、电离效率、质量歧视、检测效率）都不是常数，</text><text x="30.0" y="240.0" font-size="12.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">而且对不同元素取不同的值。所以仪器测到的 cps 只能告诉你"相对"关系，不能直接换算成含量。</text><rect x="30.0" y="254.0" width="840.0" height="30.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="44.0" y="273.0" font-size="12.5" fill="#854F0B" text-anchor="start" font-weight="normal">TERMITE 不去逐个求这些量 —— 它把它们的总效果打成一个包，用参考物质测出来，这个包就是 RSF（第 5 章）。</text></svg>
+<svg viewBox="0 0 900 300" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="30.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">从一块矿物到一个数字：LA-ICP-MS 中间发生了什么</text><text x="30.0" y="50.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">每一格都在丢东西，而且丢的比例因元素而异</text><rect x="30.0" y="82.0" width="106.0" height="86.0" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" rx="9"/><text x="83.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">激光</text><text x="83.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">213 nm 紫外</text><text x="83.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">把固体剥蚀成</text><text x="83.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">气溶胶颗粒</text><line x1="138.0" y1="125.0" x2="152.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="152.0,125.0 145.6,127.9 145.6,122.1" fill="#888780"/><rect x="154.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="207.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">样品室</text><text x="207.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">He 载气</text><text x="207.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">把颗粒吹出</text><text x="207.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">剥蚀坑</text><line x1="262.0" y1="125.0" x2="276.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="276.0,125.0 269.6,127.9 269.6,122.1" fill="#888780"/><rect x="278.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="331.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">进样</text><text x="331.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">气溶胶</text><text x="331.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">约 15–30%</text><text x="331.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">到达等离子体</text><line x1="386.0" y1="125.0" x2="400.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="400.0,125.0 393.6,127.9 393.6,122.1" fill="#888780"/><rect x="402.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="455.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">ICP</text><text x="455.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">6000–10000 K</text><text x="455.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">把原子电离成</text><text x="455.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">一价正离子</text><line x1="510.0" y1="125.0" x2="524.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="524.0,125.0 517.6,127.9 517.6,122.1" fill="#888780"/><rect x="526.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="579.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">四极杆</text><text x="579.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">按 m/z 筛选</text><text x="579.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">同一时刻只</text><text x="579.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">放行一个质量</text><line x1="634.0" y1="125.0" x2="648.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="648.0,125.0 641.6,127.9 641.6,122.1" fill="#888780"/><rect x="650.0" y="82.0" width="106.0" height="86.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="9"/><text x="703.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">检测器</text><text x="703.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">电子倍增</text><text x="703.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">数离子个数</text><text x="703.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">（离散脉冲）</text><line x1="758.0" y1="125.0" x2="772.0" y2="125.0" stroke="#888780" stroke-width="1.6"/><polygon points="772.0,125.0 765.6,127.9 765.6,122.1" fill="#888780"/><rect x="774.0" y="82.0" width="106.0" height="86.0" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" rx="9"/><text x="827.0" y="103.0" font-size="14" fill="#2C2C2A" text-anchor="middle" font-weight="600">结果</text><text x="827.0" y="119.0" font-size="10.5" fill="#534AB7" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">cps</text><text x="827.0" y="138.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">每秒多少计数</text><text x="827.0" y="152.0" font-size="10.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">即计数率</text><line x1="30.0" y1="200.0" x2="870.0" y2="200.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="222.0" font-size="12.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">这些环节的未知量（剥蚀量、传输效率、电离效率、质量歧视、检测效率）都不是常数，</text><text x="30.0" y="240.0" font-size="12.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">而且对不同元素取不同的值。所以仪器测到的 cps 只能告诉你"相对"关系，不能直接换算成含量。</text><rect x="30.0" y="254.0" width="840.0" height="30.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="44.0" y="273.0" font-size="12.5" fill="#854F0B" text-anchor="start" font-weight="normal">TERMITE 不去逐个求这些量 —— 它把它们的总效果打成一个包，用参考物质测出来，这个包就是 RSF（见第 5 章）。</text></svg>
 <figcaption><b>图 1</b>　LA-ICP-MS 的信号链。每一格都在丢东西，而且丢的比例因元素而异 —— 这就是为什么 cps 不能直接换算成含量。</figcaption>
 </figure>
 
@@ -355,34 +411,33 @@ BIR-1G、BCR-2G、BHVO-2G 都有国际公认的推荐值。虽然本仓库自带
 </ul>
 
 <p>这些都算不出来。但它们有一个共同特征：<strong>对同一个时刻的所有同位素，影响方向相同</strong>。
-这给了后面第 5 章第 ② 步一个立足点。</p>
+这给了后面第 6 章第 ② 步一个立足点。</p>
 
-<h3>4.2 一个测点的真实信号</h3>
+<h3>5.2 一个测点的真实信号</h3>
 
-<p>下面是这个批次里第一个样品 <code>19SH-43-5</code>（文件 <code>20230806CKDA_10.csv</code>）
+<p>下面是这个批次里第一个样品 <code>S-01</code>（文件 <code>sample_10.csv</code>）
 的原始数据，两条曲线都是直接从文件里读出来的，没有做任何加工。</p>
 
 <figure>
-<svg viewBox="0 0 900 410" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">一个测点的真实信号：19SH-43-5（20230806CKDA_10.csv）</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">纵轴是指数刻度 —— 一格十倍。注意 182W 在激光打开的瞬间跳了约 5 个数量级。</text><line x1="112.0" y1="313.3" x2="866.0" y2="313.3" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="317.3" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^4</text><line x1="112.0" y1="267.8" x2="866.0" y2="267.8" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="271.8" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^5</text><line x1="112.0" y1="222.4" x2="866.0" y2="222.4" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="226.4" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^6</text><line x1="112.0" y1="176.9" x2="866.0" y2="176.9" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="180.9" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^7</text><line x1="112.0" y1="131.5" x2="866.0" y2="131.5" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="135.5" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^8</text><line x1="112.0" y1="86.0" x2="866.0" y2="86.0" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="90.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^9</text><rect x="171.5" y="86.0" width="231.5" height="250.0" fill="#EFEEE9" stroke="none" stroke-width="1" rx="0" opacity="0.9"/><rect x="469.2" y="86.0" width="317.5" height="250.0" fill="#E1F5EE" stroke="none" stroke-width="1" rx="0" opacity="0.7"/><text x="287.3" y="78.0" font-size="11.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">空白窗 25–60</text><text x="627.9" y="78.0" font-size="11.5" fill="#0F6E56" text-anchor="middle" font-weight="normal">信号窗 70–118</text><line x1="416.2" y1="86.0" x2="416.2" y2="336.0" stroke="#854F0B" stroke-width="1.4" stroke-dasharray="4 3"/><text x="422.2" y="60.0" font-size="11.5" fill="#854F0B" text-anchor="start" font-weight="normal">激光打开（第 62 行）</text><polyline points="112.0,314.3 118.6,313.3 125.2,317.2 131.8,315.6 138.5,312.7 145.1,313.7 151.7,316.9 158.3,316.7 164.9,315.3 171.5,317.2 178.1,316.7 184.8,319.2 191.4,316.7 198.0,314.1 204.6,317.9 211.2,317.9 217.8,316.9 224.4,318.9 231.1,318.2 237.7,316.2 244.3,319.5 250.9,324.0 257.5,321.2 264.1,319.2 270.7,319.8 277.4,318.2 284.0,320.3 290.6,316.7 297.2,321.2 303.8,320.0 310.4,318.4 317.0,317.4 323.6,320.6 330.3,320.3 336.9,319.5 343.5,317.4 350.1,322.4 356.7,322.1 363.3,321.2 369.9,317.7 376.6,321.8 383.2,317.7 389.8,325.1 396.4,324.7 403.0,319.5 409.6,324.7 416.2,156.0 422.9,110.2 429.5,99.1 436.1,96.0 442.7,95.0 449.3,94.1 455.9,94.4 462.5,94.7 469.2,94.9 475.8,95.5 482.4,95.4 489.0,95.6 495.6,96.2 502.2,97.4 508.8,97.4 515.5,97.8 522.1,98.5 528.7,98.6 535.3,99.0 541.9,99.3 548.5,100.4 555.1,100.1 561.8,100.8 568.4,100.6 575.0,100.9 581.6,100.8 588.2,101.3 594.8,101.5 601.4,101.9 608.1,102.6 614.7,102.8 621.3,103.2 627.9,103.4 634.5,103.4 641.1,103.8 647.7,104.2 654.4,103.9 661.0,103.7 667.6,104.5 674.2,104.6 680.8,105.0 687.4,104.9 694.0,105.2 700.6,105.8 707.3,106.2 713.9,106.1 720.5,106.2 727.1,106.8 733.7,106.8 740.3,107.9 746.9,107.4 753.6,107.9 760.2,108.0 766.8,108.5 773.4,109.2 780.0,109.3 786.6,109.5 793.2,109.5 799.9,109.2 806.5,109.8 813.1,110.2 819.7,114.3 826.3,127.5 832.9,143.3 839.5,160.1 846.2,175.8 852.8,193.9 859.4,210.3 866.0,231.8" fill="none" stroke="#534AB7" stroke-width="1.8"/><polyline points="112.0,233.4 118.6,233.0 125.2,233.8 131.8,233.2 138.5,233.4 145.1,233.4 151.7,233.4 158.3,233.1 164.9,233.4 171.5,233.1 178.1,232.8 184.8,233.5 191.4,233.1 198.0,233.2 204.6,233.1 211.2,233.3 217.8,233.4 224.4,233.8 231.1,233.5 237.7,234.0 244.3,233.9 250.9,232.6 257.5,233.9 264.1,233.4 270.7,233.4 277.4,233.3 284.0,233.4 290.6,232.4 297.2,232.8 303.8,233.1 310.4,233.0 317.0,233.3 323.6,232.6 330.3,233.3 336.9,233.6 343.5,233.0 350.1,233.0 356.7,232.9 363.3,233.2 369.9,233.8 376.6,233.5 383.2,232.8 389.8,233.4 396.4,233.7 403.0,233.5 409.6,233.2 416.2,233.4 422.9,234.1 429.5,232.6 436.1,232.2 442.7,232.5 449.3,232.7 455.9,232.2 462.5,232.0 469.2,232.2 475.8,231.7 482.4,232.3 489.0,232.0 495.6,231.9 502.2,232.4 508.8,232.7 515.5,232.1 522.1,232.8 528.7,231.9 535.3,232.8 541.9,232.9 548.5,232.5 555.1,232.4 561.8,232.1 568.4,233.4 575.0,233.0 581.6,233.0 588.2,232.8 594.8,232.8 601.4,232.9 608.1,233.2 614.7,233.6 621.3,232.8 627.9,233.1 634.5,233.3 641.1,233.0 647.7,232.5 654.4,232.9 661.0,232.6 667.6,232.9 674.2,232.6 680.8,232.7 687.4,232.6 694.0,232.6 700.6,232.9 707.3,232.4 713.9,233.0 720.5,233.2 727.1,233.0 733.7,232.9 740.3,232.4 746.9,232.6 753.6,233.3 760.2,233.1 766.8,233.2 773.4,233.1 780.0,233.8 786.6,232.8 793.2,233.1 799.9,233.0 806.5,232.6 813.1,233.5 819.7,233.2 826.3,233.4 832.9,232.9 839.5,233.3 846.2,233.6 852.8,233.6 859.4,233.2 866.0,233.5" fill="none" stroke="#185FA5" stroke-width="1.8"/><line x1="112.0" y1="86.0" x2="112.0" y2="336.0" stroke="#888780" stroke-width="1.5"/><line x1="112.0" y1="336.0" x2="866.0" y2="336.0" stroke="#888780" stroke-width="1.5"/><line x1="138.5" y1="336.0" x2="138.5" y2="340.0" stroke="#888780" stroke-width="1"/><text x="138.5" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">20</text><line x1="270.7" y1="336.0" x2="270.7" y2="340.0" stroke="#888780" stroke-width="1"/><text x="270.7" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">40</text><line x1="403.0" y1="336.0" x2="403.0" y2="340.0" stroke="#888780" stroke-width="1"/><text x="403.0" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">60</text><line x1="535.3" y1="336.0" x2="535.3" y2="340.0" stroke="#888780" stroke-width="1"/><text x="535.3" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">80</text><line x1="667.6" y1="336.0" x2="667.6" y2="340.0" stroke="#888780" stroke-width="1"/><text x="667.6" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">100</text><line x1="799.9" y1="336.0" x2="799.9" y2="340.0" stroke="#888780" stroke-width="1"/><text x="799.9" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">120</text><text x="489.0" y="372.0" font-size="12" fill="#5F5E5A" text-anchor="middle" font-weight="normal">文件真实行号</text><text x="30.0" y="372.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">cps</text><line x1="120.0" y1="95.0" x2="770.0" y2="95.0" stroke="#888780" stroke-width="1" stroke-dasharray="3 3"/><text x="860.0" y="89.0" font-size="11" fill="#534AB7" text-anchor="end" font-weight="normal">182W 峰值 6.34×10⁸ cps</text><line x1="120.0" y1="319.2" x2="405.0" y2="319.2" stroke="#888780" stroke-width="1" stroke-dasharray="3 3"/><text x="134.0" y="313.2" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">空白中位 ≈ 7.4×10³ cps</text><text x="470.0" y="140.0" font-size="11.5" fill="#534AB7" text-anchor="start" font-weight="normal">↓ 剥蚀到后期，信号掉到峰值的 40%</text><text x="120.0" y="226.3" font-size="12" fill="#185FA5" text-anchor="start" font-weight="600">29Si</text><text x="600.0" y="196.0" font-size="11.5" fill="#185FA5" text-anchor="start" font-weight="normal">29Si：空白 5.75×10⁵</text><text x="600.0" y="214.0" font-size="11.5" fill="#185FA5" text-anchor="start" font-weight="normal">剥蚀段 5.89×10⁵，只高 2% → 测不到</text></svg>
-<figcaption><b>图 2</b>　19SH-43-5 的原始信号剖面（纵轴指数刻度）。激光打开后 182W 跳了约 5 个数量级，而 29Si 纹丝不动 —— 前者是主量元素，后者全来自本底。数据直接读自 <code>20230806CKDA_10.csv</code>。</figcaption>
+<svg viewBox="0 0 900 410" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">一个测点的真实信号：样品 S-01（文件 sample_10.csv）</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">纵轴是指数刻度 —— 一格十倍。注意 182W 在激光打开的瞬间跳了约 5 个数量级。</text><line x1="112.0" y1="313.3" x2="866.0" y2="313.3" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="317.3" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^4</text><line x1="112.0" y1="267.8" x2="866.0" y2="267.8" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="271.8" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^5</text><line x1="112.0" y1="222.4" x2="866.0" y2="222.4" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="226.4" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^6</text><line x1="112.0" y1="176.9" x2="866.0" y2="176.9" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="180.9" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^7</text><line x1="112.0" y1="131.5" x2="866.0" y2="131.5" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="135.5" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^8</text><line x1="112.0" y1="86.0" x2="866.0" y2="86.0" stroke="#E7E5DF" stroke-width="1"/><text x="104.0" y="90.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">10^9</text><rect x="171.5" y="86.0" width="231.5" height="250.0" fill="#EFEEE9" stroke="none" stroke-width="1" rx="0" opacity="0.9"/><rect x="469.2" y="86.0" width="317.5" height="250.0" fill="#E1F5EE" stroke="none" stroke-width="1" rx="0" opacity="0.7"/><text x="287.3" y="78.0" font-size="11.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">空白窗 25–60</text><text x="627.9" y="78.0" font-size="11.5" fill="#0F6E56" text-anchor="middle" font-weight="normal">信号窗 70–118</text><line x1="416.2" y1="86.0" x2="416.2" y2="336.0" stroke="#854F0B" stroke-width="1.4" stroke-dasharray="4 3"/><text x="422.2" y="60.0" font-size="11.5" fill="#854F0B" text-anchor="start" font-weight="normal">激光打开（第 62 行）</text><polyline points="112.0,314.3 118.6,313.3 125.2,317.2 131.8,315.6 138.5,312.7 145.1,313.7 151.7,316.9 158.3,316.7 164.9,315.3 171.5,317.2 178.1,316.7 184.8,319.2 191.4,316.7 198.0,314.1 204.6,317.9 211.2,317.9 217.8,316.9 224.4,318.9 231.1,318.2 237.7,316.2 244.3,319.5 250.9,324.0 257.5,321.2 264.1,319.2 270.7,319.8 277.4,318.2 284.0,320.3 290.6,316.7 297.2,321.2 303.8,320.0 310.4,318.4 317.0,317.4 323.6,320.6 330.3,320.3 336.9,319.5 343.5,317.4 350.1,322.4 356.7,322.1 363.3,321.2 369.9,317.7 376.6,321.8 383.2,317.7 389.8,325.1 396.4,324.7 403.0,319.5 409.6,324.7 416.2,156.0 422.9,110.2 429.5,99.1 436.1,96.0 442.7,95.0 449.3,94.1 455.9,94.4 462.5,94.7 469.2,94.9 475.8,95.5 482.4,95.4 489.0,95.6 495.6,96.2 502.2,97.4 508.8,97.4 515.5,97.8 522.1,98.5 528.7,98.6 535.3,99.0 541.9,99.3 548.5,100.4 555.1,100.1 561.8,100.8 568.4,100.6 575.0,100.9 581.6,100.8 588.2,101.3 594.8,101.5 601.4,101.9 608.1,102.6 614.7,102.8 621.3,103.2 627.9,103.4 634.5,103.4 641.1,103.8 647.7,104.2 654.4,103.9 661.0,103.7 667.6,104.5 674.2,104.6 680.8,105.0 687.4,104.9 694.0,105.2 700.6,105.8 707.3,106.2 713.9,106.1 720.5,106.2 727.1,106.8 733.7,106.8 740.3,107.9 746.9,107.4 753.6,107.9 760.2,108.0 766.8,108.5 773.4,109.2 780.0,109.3 786.6,109.5 793.2,109.5 799.9,109.2 806.5,109.8 813.1,110.2 819.7,114.3 826.3,127.5 832.9,143.3 839.5,160.1 846.2,175.8 852.8,193.9 859.4,210.3 866.0,231.8" fill="none" stroke="#534AB7" stroke-width="1.8"/><polyline points="112.0,233.4 118.6,233.0 125.2,233.8 131.8,233.2 138.5,233.4 145.1,233.4 151.7,233.4 158.3,233.1 164.9,233.4 171.5,233.1 178.1,232.8 184.8,233.5 191.4,233.1 198.0,233.2 204.6,233.1 211.2,233.3 217.8,233.4 224.4,233.8 231.1,233.5 237.7,234.0 244.3,233.9 250.9,232.6 257.5,233.9 264.1,233.4 270.7,233.4 277.4,233.3 284.0,233.4 290.6,232.4 297.2,232.8 303.8,233.1 310.4,233.0 317.0,233.3 323.6,232.6 330.3,233.3 336.9,233.6 343.5,233.0 350.1,233.0 356.7,232.9 363.3,233.2 369.9,233.8 376.6,233.5 383.2,232.8 389.8,233.4 396.4,233.7 403.0,233.5 409.6,233.2 416.2,233.4 422.9,234.1 429.5,232.6 436.1,232.2 442.7,232.5 449.3,232.7 455.9,232.2 462.5,232.0 469.2,232.2 475.8,231.7 482.4,232.3 489.0,232.0 495.6,231.9 502.2,232.4 508.8,232.7 515.5,232.1 522.1,232.8 528.7,231.9 535.3,232.8 541.9,232.9 548.5,232.5 555.1,232.4 561.8,232.1 568.4,233.4 575.0,233.0 581.6,233.0 588.2,232.8 594.8,232.8 601.4,232.9 608.1,233.2 614.7,233.6 621.3,232.8 627.9,233.1 634.5,233.3 641.1,233.0 647.7,232.5 654.4,232.9 661.0,232.6 667.6,232.9 674.2,232.6 680.8,232.7 687.4,232.6 694.0,232.6 700.6,232.9 707.3,232.4 713.9,233.0 720.5,233.2 727.1,233.0 733.7,232.9 740.3,232.4 746.9,232.6 753.6,233.3 760.2,233.1 766.8,233.2 773.4,233.1 780.0,233.8 786.6,232.8 793.2,233.1 799.9,233.0 806.5,232.6 813.1,233.5 819.7,233.2 826.3,233.4 832.9,232.9 839.5,233.3 846.2,233.6 852.8,233.6 859.4,233.2 866.0,233.5" fill="none" stroke="#185FA5" stroke-width="1.8"/><line x1="112.0" y1="86.0" x2="112.0" y2="336.0" stroke="#888780" stroke-width="1.5"/><line x1="112.0" y1="336.0" x2="866.0" y2="336.0" stroke="#888780" stroke-width="1.5"/><line x1="138.5" y1="336.0" x2="138.5" y2="340.0" stroke="#888780" stroke-width="1"/><text x="138.5" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">20</text><line x1="270.7" y1="336.0" x2="270.7" y2="340.0" stroke="#888780" stroke-width="1"/><text x="270.7" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">40</text><line x1="403.0" y1="336.0" x2="403.0" y2="340.0" stroke="#888780" stroke-width="1"/><text x="403.0" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">60</text><line x1="535.3" y1="336.0" x2="535.3" y2="340.0" stroke="#888780" stroke-width="1"/><text x="535.3" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">80</text><line x1="667.6" y1="336.0" x2="667.6" y2="340.0" stroke="#888780" stroke-width="1"/><text x="667.6" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">100</text><line x1="799.9" y1="336.0" x2="799.9" y2="340.0" stroke="#888780" stroke-width="1"/><text x="799.9" y="353.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">120</text><text x="489.0" y="372.0" font-size="12" fill="#5F5E5A" text-anchor="middle" font-weight="normal">文件真实行号</text><text x="30.0" y="372.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">cps</text><line x1="120.0" y1="95.0" x2="770.0" y2="95.0" stroke="#888780" stroke-width="1" stroke-dasharray="3 3"/><text x="860.0" y="89.0" font-size="11" fill="#534AB7" text-anchor="end" font-weight="normal">182W 峰值 6.34×10⁸ cps</text><line x1="120.0" y1="319.2" x2="405.0" y2="319.2" stroke="#888780" stroke-width="1" stroke-dasharray="3 3"/><text x="134.0" y="313.2" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">空白中位 ≈ 7.4×10³ cps</text><text x="470.0" y="140.0" font-size="11.5" fill="#534AB7" text-anchor="start" font-weight="normal">↓ 剥蚀到后期，信号掉到峰值的 40%</text><text x="120.0" y="226.3" font-size="12" fill="#185FA5" text-anchor="start" font-weight="600">29Si</text><text x="600.0" y="196.0" font-size="11.5" fill="#185FA5" text-anchor="start" font-weight="normal">29Si：空白 5.75×10⁵</text><text x="600.0" y="214.0" font-size="11.5" fill="#185FA5" text-anchor="start" font-weight="normal">剥蚀段 5.89×10⁵，只高 2% → 测不到</text></svg>
+<figcaption><b>图 2</b>　样品 S-01 的原始信号剖面（纵轴指数刻度）。激光打开后 182W 跳了约 5 个数量级，而 29Si 纹丝不动 —— 前者是主量元素，后者全来自本底。数据直接读自 <code>sample_10.csv</code>。</figcaption>
 </figure>
 
 <p>这张图里有三件事值得停下来看：</p>
 
-<h4>① 样品名里写着"43"，但主量元素是钨</h4>
+<h4>① 主量元素是钨</h4>
 
 <p>剥蚀开始前（文件第 16–61 行）182W 的计数率在 5 500–9 600 cps 之间，中位数 <b>7 402 cps</b>；
 激光一打开（第 62 行），它跳到 <b>6.34×10<sup>8</sup> cps</b>。</p>
 
 <p>两者相差约 <strong>8.9 万倍</strong>（≈5 个数量级）。这种量级的跳变只有一种解释：
 <strong>这个元素的氧化物是样品的主要成分。</strong>
-在 19SH-43-5 里，W 就是主量元素 —— 它是白钨矿（CaWO<sub>4</sub>），不是锡石。</p>
+在 S-01 里，W 就是主量元素 —— 它是白钨矿（CaWO<sub>4</sub>）。</p>
 
 <div class="note">
-<p>样品名里的 "43" 是采样点位编号，跟矿物种类没关系。
-同批次的 19SH-63-x、19SH-7-x、19SH-Calc-Sch-x 全都是白钨矿。
-<strong>不能从样品名推矿物种类</strong> —— 这是本批数据教给我们的第一个教训，
-也是我最初把内标选错的原因（见 <a href="#c7">第 7 章</a>）。</p>
+<p>同一批的 40 个样品全部如此（判据见第 <a href="#c8">8 章</a>）。
+这里想强调的是：<strong>矿物种类的判断要靠数据，不能靠文件名或目录名</strong> ——
+这是本批数据教给我们的第一个教训，也是我最初把内标选错的原因（见 <a href="#c8">第 8 章</a>）。</p>
 </div>
 
 <h4>② 同一个文件里，29Si 从头到尾没动过</h4>
@@ -403,9 +458,9 @@ BIR-1G、BCR-2G、BHVO-2G 都有国际公认的推荐值。虽然本仓库自带
 <strong>只剩峰值的 40%</strong>。原因是坑越挖越深，激光聚焦变差，单位时间剥蚀的量在减少。</p>
 
 <p>这个漂移如果不管，同一个样品的"平均信号"就取决于你把窗口开多长 ——
-显然不能这样出结果。第 5 章第 ② 步专门处理它。</p>
+显然不能这样出结果。第 6 章第 ② 步专门处理它。</p>
 
-<h3>4.3 gas blank：一切计数的起点</h3>
+<h3>5.3 gas blank：一切计数的起点</h3>
 
 <p>上面反复出现的"空白"，指的是 <strong>gas blank（气空白）</strong>：
 激光还没打开时，仪器记录到的计数率。</p>
@@ -422,13 +477,13 @@ BIR-1G、BCR-2G、BHVO-2G 都有国际公认的推荐值。虽然本仓库自带
 <p><b>最容易犯的错：把空白段当成需要丢弃的"预热"。</b></p>
 <p>如果积分窗口从激光打开之后才开始算（比如你直接把 <code>first_blank</code>
 也填成开剥后），背景就永远扣不掉，所有元素都会偏高，高得离谱 ——
-而且因为没有"负数"报警，你可能看不出问题。第 <a href="#c9">9 章</a>
+而且因为没有"负数"报警，你可能看不出问题。第 <a href="#c14">14 章</a>
 会给出这批数据应该怎么填。</p>
 </div>
 
-<h3>4.4 "测不到"和"含量是零"是两件不同的事</h3>
+<h3>5.4 "测不到"和"含量是零"是两件不同的事</h3>
 
-<p>最后用一个具体例子把这件事钉死。同一批数据里，样品 <code>19SH-43-5</code> 的 <b>7Li</b>：</p>
+<p>最后用一个具体例子把这件事钉死。同一批数据里，样品 <code>S-01</code> 的 <b>7Li</b>：</p>
 
 <table>
 <thead><tr><th>量</th><th class="r">数值</th><th>说明</th></tr></thead>
@@ -437,7 +492,7 @@ BIR-1G、BCR-2G、BHVO-2G 都有国际公认的推荐值。虽然本仓库自带
 <tr><td>剥蚀段中位数</td><td class="n r">1 600 cps</td></tr>
 <tr><td>空白段均值</td><td class="n r">1 708 cps</td><td rowspan="2">扣完是 <b>−69 cps</b></td></tr>
 <tr><td>剥蚀段均值</td><td class="n r">1 639 cps</td></tr>
-<tr><td>净信号</td><td class="n r">−69 cps → 截断为 0</td><td>负值被截成 0（第 5 章第 ① 步）</td></tr>
+<tr><td>净信号</td><td class="n r">−69 cps → 截断为 0</td><td>负值被截成 0（第 6 章第 ① 步）</td></tr>
 <tr><td>最终结果</td><td class="n r">NA</td><td>因为浓度 ≤ 0 被抹掉</td></tr>
 </tbody>
 </table>
@@ -454,13 +509,13 @@ BIR-1G、BCR-2G、BHVO-2G 都有国际公认的推荐值。虽然本仓库自带
 如果整批数据的 Li 都想用，正确的做法是先解决这个本底 —— 而不是接受 NA 就完事。</p>
 </div>
 
-<h2 id="c5">5. 七步归算：从计数率到 µg/g</h2>
+<h2 id="c6">6. 七步归算：从计数率到 µg/g</h2>
 
 <p>现在可以把完整的链条摆出来了。TERMITE 内核（<code>R/termite_core.R</code> 的
 <code>termite_run()</code>）做的就是这七件事，顺序不能换。</p>
 
 <figure>
-<svg viewBox="0 0 900 580" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="30.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">七步归算：每一步在消掉什么</text><text x="30.0" y="49.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">右边一列是同一个样品（19SH-43-5）在每一步上的真实数字，用来把抽象公式落到地上。</text><text x="576.0" y="49.0" font-size="12" fill="#2C2C2A" text-anchor="start" font-weight="normal"></text><circle cx="52.0" cy="96.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="101.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">1</text><text x="80.0" y="89.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">① 扣背景 gas blank</text><text x="80.0" y="108.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">I_j(t) = raw_j(t) − median(raw_j[空白窗])</text><text x="80.0" y="126.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">消掉载气、等离子体、样品室带来的恒定本底；中位数比均值稳健</text><text x="566.0" y="104.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">182W 空白 7 402 cps；29Si 空白 5.75×10⁵ cps</text><line x1="52.0" y1="112.0" x2="52.0" y2="146.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="114.0" x2="556.0" y2="152.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="166.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="171.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">2</text><text x="80.0" y="159.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">② 内标归一</text><text x="80.0" y="178.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">R_j(t) = I_j(t) / I_IS(t)</text><text x="80.0" y="196.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">消掉剥蚀量与传输效率的漂移；它们同时作用于 j 和 IS</text><text x="566.0" y="174.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">R_La 中位数 = 2.56×10⁻⁴</text><line x1="52.0" y1="182.0" x2="52.0" y2="216.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="184.0" x2="556.0" y2="222.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="236.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="241.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">3</text><text x="80.0" y="229.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">③ 离群剔除</text><text x="80.0" y="248.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">窗口 = 中位数 × (1 ± 30%)</text><text x="80.0" y="266.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">剔掉击穿包裹体、裂隙、表面不平造成的尖峰；对偏态数据并不稳健</text><text x="566.0" y="244.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">182W 剔除 0%；232Th 剔除 73.5%</text><line x1="52.0" y1="252.0" x2="52.0" y2="286.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="254.0" x2="556.0" y2="292.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="306.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="311.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">4</text><text x="80.0" y="299.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">④ 同位素换算</text><text x="80.0" y="318.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Iso_j = (A_IS / A_j) · (M_j / M_IS)</text><text x="80.0" y="336.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">从「同位素计数比」换成「元素质量比」；补丰度和原子量</text><text x="566.0" y="314.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">Iso_La = 0.2004（A_La=0.9991，A_W=0.2650）</text><line x1="52.0" y1="322.0" x2="52.0" y2="356.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="324.0" x2="556.0" y2="362.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="376.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="381.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">5</text><text x="80.0" y="369.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">⑤ 乘内标含量</text><text x="80.0" y="388.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">C_j^未校正 = Iso_j · R_j · C_IS</text><text x="80.0" y="406.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">把比值变成绝对量级；这一步假设 j 与 IS 灵敏度相同（不成立）</text><text x="566.0" y="384.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">C_La^未校正 = 32.79 µg/g（C_IS = 638 500）</text><line x1="52.0" y1="392.0" x2="52.0" y2="426.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="394.0" x2="556.0" y2="432.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="446.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="451.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">6</text><text x="80.0" y="439.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">⑥ 除以 RSF</text><text x="80.0" y="458.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">C_j = C_j^未校正 / RSF_j ，RSF 由参考物质测定</text><text x="80.0" y="476.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">修正灵敏度差异。RSF 吸收了剥蚀量 × 传输效率 × 电离效率</text><text x="566.0" y="454.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">RSF_La = 0.5103 → C_La = 64.24 µg/g</text><line x1="52.0" y1="462.0" x2="52.0" y2="496.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="464.0" x2="556.0" y2="502.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="516.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="521.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">7</text><text x="80.0" y="509.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">⑦ 检出限截断</text><text x="80.0" y="528.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">低于 LoD 或 ≤ 0 的单元格 → NA</text><text x="80.0" y="546.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">不伪造数字：测不到就明确写「测不到」</text><text x="566.0" y="524.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">LoD_La = 0 —— 这个 0 是有问题的，见第 7 章</text></svg>
+<svg viewBox="0 0 900 580" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="30.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">七步归算：每一步在消掉什么</text><text x="30.0" y="49.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">右边一列是同一个样品（S-01）在每一步上的真实数字，用来把抽象公式落到地上。</text><circle cx="52.0" cy="96.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="101.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">1</text><text x="80.0" y="89.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">① 扣背景 gas blank</text><text x="80.0" y="108.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">I_j(t) = raw_j(t) − median(raw_j[空白窗])</text><text x="80.0" y="126.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">消掉载气、等离子体、样品室带来的恒定本底；中位数比均值稳健</text><text x="566.0" y="104.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">182W 空白 7 402 cps；29Si 空白 5.75×10⁵ cps</text><line x1="52.0" y1="112.0" x2="52.0" y2="146.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="114.0" x2="556.0" y2="152.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="166.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="171.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">2</text><text x="80.0" y="159.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">② 内标归一</text><text x="80.0" y="178.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">R_j(t) = I_j(t) / I_IS(t)</text><text x="80.0" y="196.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">消掉剥蚀量与传输效率的漂移；它们同时作用于 j 和 IS</text><text x="566.0" y="174.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">R_La 中位数 = 2.56×10⁻⁴</text><line x1="52.0" y1="182.0" x2="52.0" y2="216.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="184.0" x2="556.0" y2="222.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="236.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="241.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">3</text><text x="80.0" y="229.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">③ 离群剔除</text><text x="80.0" y="248.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">窗口 = 中位数 × (1 ± 30%)</text><text x="80.0" y="266.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">剔掉击穿包裹体、裂隙、表面不平造成的尖峰；对偏态数据并不稳健</text><text x="566.0" y="244.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">182W 剔除 0%；232Th 剔除 73.5%</text><line x1="52.0" y1="252.0" x2="52.0" y2="286.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="254.0" x2="556.0" y2="292.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="306.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="311.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">4</text><text x="80.0" y="299.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">④ 同位素换算</text><text x="80.0" y="318.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">Iso_j = (A_IS / A_j) · (M_j / M_IS)</text><text x="80.0" y="336.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">从「同位素计数比」换成「元素质量比」；补丰度和原子量</text><text x="566.0" y="314.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">Iso_La = 0.2004（A_La=0.9991，A_W=0.2650）</text><line x1="52.0" y1="322.0" x2="52.0" y2="356.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="324.0" x2="556.0" y2="362.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="376.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="381.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">5</text><text x="80.0" y="369.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">⑤ 乘内标含量</text><text x="80.0" y="388.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">C_j^未校正 = Iso_j · R_j · C_IS</text><text x="80.0" y="406.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">把比值变成绝对量级；这一步假设 j 与 IS 灵敏度相同（不成立）</text><text x="566.0" y="384.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">C_La^未校正 = 32.79 µg/g（C_IS = 638 500）</text><line x1="52.0" y1="392.0" x2="52.0" y2="426.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="394.0" x2="556.0" y2="432.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="446.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="451.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">6</text><text x="80.0" y="439.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">⑥ 除以 RSF</text><text x="80.0" y="458.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">C_j = C_j^未校正 / RSF_j ，RSF 由参考物质测定</text><text x="80.0" y="476.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">修正灵敏度差异。RSF 吸收了剥蚀量 × 传输效率 × 电离效率</text><text x="566.0" y="454.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">RSF_La = 0.5103 → C_La = 64.24 µg/g</text><line x1="52.0" y1="462.0" x2="52.0" y2="496.0" stroke="#D3D1C7" stroke-width="1.4" stroke-dasharray="3 3"/><line x1="556.0" y1="464.0" x2="556.0" y2="502.0" stroke="#D3D1C7" stroke-width="1"/><circle cx="52.0" cy="516.0" r="14" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/><text x="52.0" y="521.0" font-size="13" fill="#534AB7" text-anchor="middle" font-weight="700">7</text><text x="80.0" y="509.0" font-size="14" fill="#2C2C2A" text-anchor="start" font-weight="600">⑦ 检出限截断</text><text x="80.0" y="528.0" font-size="12.5" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">低于 LoD 或 ≤ 0 的单元格 → NA</text><text x="80.0" y="546.0" font-size="11.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">不伪造数字：测不到就明确写「测不到」</text><text x="566.0" y="524.0" font-size="11.5" fill="#0F6E56" text-anchor="start" font-weight="normal">LoD_La = 0 —— 这个 0 是有问题的，见第 7 章</text></svg>
 <figcaption><b>图 3</b>　七步归算链路，右列是同一个样品在每一步上的真实数字。每一步消掉的东西不同，顺序不能换。</figcaption>
 </figure>
 
@@ -480,7 +535,7 @@ I<sub>j</sub>(t) = raw<sub>j</sub>(t) − bg<sub>j</sub> &nbsp;&nbsp;&nbsp; t �
 中位数不会。代价是中位数对真实的小幅漂移不敏感 —— 这个取舍在点分析里通常划算。</p>
 
 <p>TERMITE 把这个选择做成了开关（<code>background = "median" | "mean"</code>），
-默认用中位数。本例中 19SH-43-5 的 182W 空白：中位 7 402、均值 7 413 cps，
+默认用中位数。本例中 S-01 的 182W 空白：中位 7 402、均值 7 413 cps，
 两者差别很小；但对本底波动大的元素，差别可以很明显。</p>
 
 <p><b>扣完出现负值怎么办？</b>一定会出现 —— 纯噪声在零附近上下跳。
@@ -505,14 +560,14 @@ I<sub>j</sub>(t) = raw<sub>j</sub>(t) − bg<sub>j</sub> &nbsp;&nbsp;&nbsp; t �
 
 <p>把每个待测同位素的净信号，除以同一时刻内标元素的净信号。</p>
 
-<p><b>为什么这能消掉漂移？</b>回到 4.1 节那张链：剥蚀量、传输效率、电离效率这些量，
+<p><b>为什么这能消掉漂移？</b>回到 5.1 节那张链：剥蚀量、传输效率、电离效率这些量，
 对同一时刻<strong>所有</strong>同位素的影响方向相同。既然分子分母同时被影响，
 取比值就抵消了。</p>
 
-<p>这不是理论推测。下图是 19SH-43-5 的信号窗（49 行）里两个量的对比：</p>
+<p>这不是理论推测。下图是 S-01 的信号窗（49 行）里两个量的对比：</p>
 
 <figure>
-<svg viewBox="0 0 900 366" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">内标归一做了什么：看同一段剥蚀里两个量的稳定性</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">同一段数据（19SH-43-5，信号窗 70–118 行共 49 行），左是内标信号本身，右是待测元素与内标的比值。</text><rect x="30.0" y="62.0" width="410.0" height="216.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="44.0" y="84.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">内标信号 182W</text><text x="44.0" y="101.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">随剥蚀深度单调衰减（坑变深、聚焦变差）</text><line x1="88.0" y1="196.0" x2="424.0" y2="196.0" stroke="#888780" stroke-width="1" stroke-dasharray="4 3"/><text x="424.0" y="191.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal">相对中位数 = 1</text><polyline points="88.0,142.3 95.0,146.6 102.0,146.1 109.0,147.3 116.0,152.2 123.0,160.8 130.0,160.6 137.0,163.3 144.0,167.9 151.0,168.7 158.0,171.1 165.0,172.7 172.0,179.4 179.0,177.7 186.0,182.0 193.0,181.1 200.0,182.7 207.0,182.2 214.0,185.1 221.0,185.7 228.0,188.0 235.0,192.0 242.0,193.1 249.0,194.9 256.0,196.0 263.0,196.3 270.0,198.1 277.0,199.8 284.0,198.5 291.0,197.5 298.0,201.3 305.0,201.7 312.0,203.9 319.0,203.3 326.0,204.9 333.0,207.5 340.0,209.3 347.0,208.6 354.0,209.2 361.0,211.7 368.0,212.0 375.0,216.5 382.0,214.5 389.0,216.4 396.0,216.8 403.0,218.6 410.0,221.6 417.0,222.0 424.0,222.7" fill="none" stroke="#534AB7" stroke-width="1.7"/><line x1="88.0" y1="116.0" x2="88.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><line x1="88.0" y1="246.0" x2="424.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><text x="81.0" y="240.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.6</text><text x="81.0" y="220.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.8</text><text x="81.0" y="200.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.0</text><text x="81.0" y="180.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.2</text><text x="81.0" y="160.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.4</text><text x="81.0" y="140.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.6</text><text x="256.0" y="264.0" font-size="11" fill="#5F5E5A" text-anchor="middle" font-weight="normal">信号窗内的 49 行</text><rect x="44.0" y="276.0" width="382.0" height="30.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="56.0" y="295.0" font-size="12.5" fill="#854F0B" text-anchor="start" font-weight="600">相对标准偏差  21.3%</text><rect x="470.0" y="62.0" width="400.0" height="216.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="484.0" y="84.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">比值 139La / 182W</text><text x="484.0" y="101.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">大部分漂移被约掉了</text><line x1="528.0" y1="196.0" x2="854.0" y2="196.0" stroke="#888780" stroke-width="1" stroke-dasharray="4 3"/><text x="854.0" y="191.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal">相对中位数 = 1</text><polyline points="528.0,185.0 534.8,176.6 541.6,183.6 548.4,187.8 555.2,183.8 562.0,186.2 568.8,185.5 575.5,184.3 582.3,187.9 589.1,195.7 595.9,192.1 602.7,193.0 609.5,197.6 616.3,196.6 623.1,187.9 629.9,194.8 636.7,197.5 643.5,200.5 650.2,197.0 657.0,199.5 663.8,202.4 670.6,200.9 677.4,196.1 684.2,195.7 691.0,192.0 697.8,189.1 704.6,198.3 711.4,192.3 718.2,193.9 725.0,193.9 731.8,196.0 738.5,198.0 745.3,194.3 752.1,198.9 758.9,193.5 765.7,193.3 772.5,200.3 779.3,200.9 786.1,197.4 792.9,194.8 799.7,203.6 806.5,202.4 813.2,203.6 820.0,202.0 826.8,206.5 833.6,204.1 840.4,205.0 847.2,201.7 854.0,204.0" fill="none" stroke="#0F6E56" stroke-width="1.7"/><line x1="528.0" y1="116.0" x2="528.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><line x1="528.0" y1="246.0" x2="854.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><text x="521.0" y="240.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.6</text><text x="521.0" y="220.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.8</text><text x="521.0" y="200.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.0</text><text x="521.0" y="180.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.2</text><text x="521.0" y="160.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.4</text><text x="521.0" y="140.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.6</text><text x="691.0" y="264.0" font-size="11" fill="#5F5E5A" text-anchor="middle" font-weight="normal">信号窗内的 49 行</text><rect x="484.0" y="276.0" width="372.0" height="30.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="496.0" y="295.0" font-size="12.5" fill="#0F6E56" text-anchor="start" font-weight="600">相对标准偏差  6.6%</text><line x1="30.0" y1="320.0" x2="870.0" y2="320.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="342.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">同一段数据：内标信号自身的波动 21.3%，取比值后降到 6.6%。内标并没有把漂移完全消除 ——</text><text x="30.0" y="359.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">W 与 La 的剥蚀行为本身不同（分馏），剩下的 6.6% 就是它消不掉的部分，所以后面还要靠离群剔除和 RSD 旗标去兜。</text></svg>
+<svg viewBox="0 0 900 366" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">内标归一做了什么：看同一段剥蚀里两个量的稳定性</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">同一段数据（样品 S-01，信号窗 70–118 行共 49 行），左是内标信号本身，右是待测元素与内标的比值。</text><rect x="30.0" y="62.0" width="410.0" height="216.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="44.0" y="84.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">内标信号 182W</text><text x="44.0" y="101.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">随剥蚀深度单调衰减（坑变深、聚焦变差）</text><line x1="88.0" y1="196.0" x2="424.0" y2="196.0" stroke="#888780" stroke-width="1" stroke-dasharray="4 3"/><text x="424.0" y="191.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal">相对中位数 = 1</text><polyline points="88.0,142.3 95.0,146.6 102.0,146.1 109.0,147.3 116.0,152.2 123.0,160.8 130.0,160.6 137.0,163.3 144.0,167.9 151.0,168.7 158.0,171.1 165.0,172.7 172.0,179.4 179.0,177.7 186.0,182.0 193.0,181.1 200.0,182.7 207.0,182.2 214.0,185.1 221.0,185.7 228.0,188.0 235.0,192.0 242.0,193.1 249.0,194.9 256.0,196.0 263.0,196.3 270.0,198.1 277.0,199.8 284.0,198.5 291.0,197.5 298.0,201.3 305.0,201.7 312.0,203.9 319.0,203.3 326.0,204.9 333.0,207.5 340.0,209.3 347.0,208.6 354.0,209.2 361.0,211.7 368.0,212.0 375.0,216.5 382.0,214.5 389.0,216.4 396.0,216.8 403.0,218.6 410.0,221.6 417.0,222.0 424.0,222.7" fill="none" stroke="#534AB7" stroke-width="1.7"/><line x1="88.0" y1="116.0" x2="88.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><line x1="88.0" y1="246.0" x2="424.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><text x="81.0" y="240.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.6</text><text x="81.0" y="220.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.8</text><text x="81.0" y="200.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.0</text><text x="81.0" y="180.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.2</text><text x="81.0" y="160.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.4</text><text x="81.0" y="140.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.6</text><text x="256.0" y="264.0" font-size="11" fill="#5F5E5A" text-anchor="middle" font-weight="normal">信号窗内的 49 行</text><rect x="44.0" y="276.0" width="382.0" height="30.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="56.0" y="295.0" font-size="12.5" fill="#854F0B" text-anchor="start" font-weight="600">相对标准偏差  21.3%</text><rect x="470.0" y="62.0" width="400.0" height="216.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="484.0" y="84.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">比值 139La / 182W</text><text x="484.0" y="101.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">大部分漂移被约掉了</text><line x1="528.0" y1="196.0" x2="854.0" y2="196.0" stroke="#888780" stroke-width="1" stroke-dasharray="4 3"/><text x="854.0" y="191.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal">相对中位数 = 1</text><polyline points="528.0,185.0 534.8,176.6 541.6,183.6 548.4,187.8 555.2,183.8 562.0,186.2 568.8,185.5 575.5,184.3 582.3,187.9 589.1,195.7 595.9,192.1 602.7,193.0 609.5,197.6 616.3,196.6 623.1,187.9 629.9,194.8 636.7,197.5 643.5,200.5 650.2,197.0 657.0,199.5 663.8,202.4 670.6,200.9 677.4,196.1 684.2,195.7 691.0,192.0 697.8,189.1 704.6,198.3 711.4,192.3 718.2,193.9 725.0,193.9 731.8,196.0 738.5,198.0 745.3,194.3 752.1,198.9 758.9,193.5 765.7,193.3 772.5,200.3 779.3,200.9 786.1,197.4 792.9,194.8 799.7,203.6 806.5,202.4 813.2,203.6 820.0,202.0 826.8,206.5 833.6,204.1 840.4,205.0 847.2,201.7 854.0,204.0" fill="none" stroke="#0F6E56" stroke-width="1.7"/><line x1="528.0" y1="116.0" x2="528.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><line x1="528.0" y1="246.0" x2="854.0" y2="246.0" stroke="#888780" stroke-width="1.2"/><text x="521.0" y="240.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.6</text><text x="521.0" y="220.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.8</text><text x="521.0" y="200.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.0</text><text x="521.0" y="180.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.2</text><text x="521.0" y="160.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.4</text><text x="521.0" y="140.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1.6</text><text x="691.0" y="264.0" font-size="11" fill="#5F5E5A" text-anchor="middle" font-weight="normal">信号窗内的 49 行</text><rect x="484.0" y="276.0" width="372.0" height="30.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="496.0" y="295.0" font-size="12.5" fill="#0F6E56" text-anchor="start" font-weight="600">相对标准偏差  6.6%</text><line x1="30.0" y1="320.0" x2="870.0" y2="320.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="342.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">同一段数据：内标信号自身的波动 21.3%，取比值后降到 6.6%。内标并没有把漂移完全消除 ——</text><text x="30.0" y="359.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">W 与 La 的剥蚀行为本身不同（分馏），剩下的 6.6% 就是它消不掉的部分，所以后面还要靠离群剔除和 RSD 旗标去兜。</text></svg>
 <figcaption><b>图 4</b>　内标归一的效果。同一段数据，内标信号自身波动 21.0%，取比值后降到 6.6%。剩下那 6.6% 是内标消不掉的分馏部分。</figcaption>
 </figure>
 
@@ -526,7 +581,7 @@ I<sub>j</sub>(t) = raw<sub>j</sub>(t) − bg<sub>j</sub> &nbsp;&nbsp;&nbsp; t �
 
 <p><b>内标元素必须满足两个条件</b>：在样品中<em>含量已知</em>，且在样品中
 <em>分布均匀</em>。第二条常被忽略：如果内标元素只富集在矿物的一部分，
-归一化会把不均匀放大到所有元素上。这就是为什么第 <a href="#c7">7 章</a>
+归一化会把不均匀放大到所有元素上。这就是为什么第 <a href="#c8">8 章</a>
 要在选内标上花那么大篇幅。</p>
 </div>
 
@@ -550,16 +605,16 @@ I<sub>j</sub>(t) = raw<sub>j</sub>(t) − bg<sub>j</sub> &nbsp;&nbsp;&nbsp; t �
 于是下界 = 上界 = 0，那 30% 的窗口退化成一个点，<strong>所有非零点都被当成离群值扔掉</strong>。</li>
 </ul>
 
-<p>第二种情况在本批数据里真实发生了，而且不止一次。19SH-43-5 的 <b>115In</b>：
+<p>第二种情况在本批数据里真实发生了，而且不止一次。S-01 的 <b>115In</b>：
 信号窗 49 行里有 45 行计数恰好是 0，只有 4 行有信号（100 或 200 cps）。
-中位数 = 0，窗口 = [0, 0]，那 4 个真信号全部被剔除。第 <a href="#c8">8 章</a>有详细拆解。</p>
+中位数 = 0，窗口 = [0, 0]，那 4 个真信号全部被剔除。第 <a href="#c9">9 章</a>有详细拆解。</p>
 
 <p>剔除比例本身也值得看。同一个样品，各元素的剔除比例差得很远：</p>
 
 <table>
 <thead><tr><th>同位素</th><th class="r">182W</th><th class="r">139La</th><th class="r">147Sm</th><th class="r">173Yb</th><th class="r">238U</th><th class="r">232Th</th><th class="r">29Si</th></tr></thead>
 <tbody>
-<tr><td>被剔除比例（19SH-43-5）</td>
+<tr><td>被剔除比例（S-01）</td>
     <td class="n r">0%</td><td class="n r">0%</td><td class="n r">36.7%</td>
     <td class="n r">51.0%</td><td class="n r">57.1%</td><td class="n r">73.5%</td>
     <td class="n r">71.4%</td></tr>
@@ -619,12 +674,12 @@ La 给出的 139La 计数比 W 给出的 182W 计数小 5 倍 —— 也就是�
 <p>这个假设显然不成立 —— 不同元素电离效率不同，轻重离子的传输效率也不同。
 所以这个结果叫"未校正浓度"，第 ⑥ 步专门修它。</p>
 
-<p>本例 19SH-43-5 的 La：</p>
+<p>本例 S-01 的 La：</p>
 
 <div class="formula">C<sub>La</sub><sup>未校正</sup> = 0.200406 × 2.56×10<sup>−4</sup> × 638 500 = <b>32.79 µg/g</b></div>
 
 <p>其中 <code>C_IS</code> = 638 500 µg/g 是白钨矿 CaWO<sub>4</sub> 中钨的化学计量含量，
-怎么算出来的见第 <a href="#c7">7 章</a>。</p>
+怎么算出来的见第 <a href="#c8">8 章</a>。</p>
 </div>
 
 <div class="step">
@@ -637,7 +692,7 @@ C<sub>j</sub> = C<sub>j</sub><sup>未校正</sup> / RSF<sub>j</sub></div>
 <p>这是整条链上唯一一次用到"外部真相"的地方，也是精度和准确度的分水岭。
 下一章专门讲。</p>
 
-<p>本例 19SH-43-5 的 La：RSF<sub>La</sub> = 0.5103，于是</p>
+<p>本例 S-01 的 La：RSF<sub>La</sub> = 0.5103，于是</p>
 
 <div class="formula">C<sub>La</sub> = 32.79 / 0.5103 = <b>64.24 µg/g</b></div>
 
@@ -664,7 +719,7 @@ TERMITE 相当于假设"样品与参考物质的灵敏度相同"。对含量与�
 （比如你测的是白钨矿、参考物是硅酸盐玻璃），这个 LoD 会有偏差。
 把它理解为<strong>该样品自身的相对检出限</strong>更合适。</li>
 <li>当 <code>3σ(blank) = 0</code> 时，LoD 会变成 0 —— 而这并不意味着"检出限无限好"。
-本批数据里 <b>58 个同位素中有 22 个的 LoD 恰好是 0</b>，成因见第 <a href="#c8">8 章</a>。</li>
+本批数据里 <b>58 个同位素中有 22 个的 LoD 恰好是 0</b>，成因见第 <a href="#c9">9 章</a>。</li>
 </ol>
 
 <p>汇总方式：每个参考物质文件各算一次 LoD，然后取<strong>中位数</strong>作为最终 LoD，
@@ -674,7 +729,7 @@ TERMITE 相当于假设"样品与参考物质的灵敏度相同"。对含量与�
 <div class="step">
 <h3 id="s8">一个测点的完整数字轨迹</h3>
 
-<p>把上面七步串起来，这就是 19SH-43-5 从原始计数到最终含量的全过程。
+<p>把上面七步串起来，这就是 S-01 从原始计数到最终含量的全过程。
 每一列都可以在源码里找到对应的那一行。</p>
 
 <table>
@@ -705,21 +760,21 @@ TERMITE 相当于假设"样品与参考物质的灵敏度相同"。对含量与�
 
 <ul>
 <li><b>182W 那一行</b>：R<sub>j</sub> = 1、Iso = 1、RSF = 1，最终浓度 = 638 500 ——
-正好等于你输入的 C<sub>IS</sub>。<strong>这不是巧合，是恒等式</strong>（第 6 章解释）。</li>
+正好等于你输入的 C<sub>IS</sub>。<strong>这不是巧合，是恒等式</strong>（第 7 章解释）。</li>
 <li><b>29Si 那一行</b>：净信号只有 1.66×10⁴ cps，而空白是 5.75×10⁵ cps，
 所以 LoD（3789 µg/g）比测出来的浓度（1114 µg/g）还大 —— 结果被截断成 NA。</li>
 <li><b>115In 那一行</b>：净信号 10.2 cps，而 R<sub>j</sub> 竟然是 0。
-它不是被噪声吃掉的（成因 A），是被离群窗口吃掉的（成因 C）—— 见第 8.2 节。</li>
+它不是被噪声吃掉的（成因 A），是被离群窗口吃掉的（成因 C）—— 见第 9.2 节。</li>
 </ul>
 </div>
 
 
-<h2 id="c6">6. 为什么必须有参考物质</h2>
+<h2 id="c7">7. 为什么必须有参考物质</h2>
 
-<p>第 5 章第 ⑤ 步留下了一个不成立的假设：待测元素和内标元素的灵敏度相同。
+<p>第 6 章第 ⑤ 步留下了一个不成立的假设：待测元素和内标元素的灵敏度相同。
 这一章讲软件怎么用一个外部的"已知答案"把它修掉，以及这个修法在哪里会失效。</p>
 
-<h3>6.1 RSF 的定义与读法</h3>
+<h3>7.1 RSF 的定义与读法</h3>
 
 <p>取一个含量有国际公认推荐值的参考物质（这里是 NIST SRM 610 与 612，
 两种掺了 60 多种微量元素的硅酸盐玻璃），把它当成普通样品跑一遍第 ①–⑤ 步，
@@ -739,10 +794,10 @@ TERMITE 相当于假设"样品与参考物质的灵敏度相同"。对含量与�
 
 <p>多个参考物质文件各算一次，再取均值，得到这一批数据共用的 RSF 向量。</p>
 
-<h3>6.2 这批数据的 RSF 长什么样</h3>
+<h3>7.2 这批数据的 RSF 长什么样</h3>
 
 <figure>
-<svg viewBox="0 0 900 428" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">RSF 不是随手一除：它随质量数系统变化</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">58 个同位素各自的 RSF（本例，内标 182W）。纵轴指数刻度 —— 数值跨越三个数量级。</text><line x1="118.0" y1="330.0" x2="866.0" y2="330.0" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="334.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.001</text><line x1="118.0" y1="261.7" x2="866.0" y2="261.7" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="265.7" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.01</text><line x1="118.0" y1="193.3" x2="866.0" y2="193.3" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="197.3" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.1</text><line x1="118.0" y1="125.0" x2="866.0" y2="125.0" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="129.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1</text><line x1="118.0" y1="125.0" x2="866.0" y2="125.0" stroke="#888780" stroke-width="1" stroke-dasharray="5 4"/><text x="124.0" y="117.0" font-size="10.5" fill="#888780" text-anchor="start" font-weight="normal">RSF = 1（与内标相当）</text><line x1="118.0" y1="84.0" x2="118.0" y2="330.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="330.0" x2="866.0" y2="330.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="330.0" x2="118.0" y2="334.0" stroke="#888780" stroke-width="1"/><text x="118.0" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">0</text><line x1="267.6" y1="330.0" x2="267.6" y2="334.0" stroke="#888780" stroke-width="1"/><text x="267.6" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">50</text><line x1="417.2" y1="330.0" x2="417.2" y2="334.0" stroke="#888780" stroke-width="1"/><text x="417.2" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">100</text><line x1="566.8" y1="330.0" x2="566.8" y2="334.0" stroke="#888780" stroke-width="1"/><text x="566.8" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">150</text><line x1="716.4" y1="330.0" x2="716.4" y2="334.0" stroke="#888780" stroke-width="1"/><text x="716.4" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">200</text><line x1="866.0" y1="330.0" x2="866.0" y2="334.0" stroke="#888780" stroke-width="1"/><text x="866.0" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">250</text><text x="492.0" y="366.0" font-size="12" fill="#5F5E5A" text-anchor="middle" font-weight="normal">同位素质量数</text><text x="30.0" y="366.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">RSF</text><polyline points="133.0,231.7 836.1,85.6" fill="none" stroke="#854F0B" stroke-width="1.5" stroke-dasharray="5 4"/><text x="856.0" y="76.0" font-size="11.5" fill="#854F0B" text-anchor="end" font-weight="normal">拟合趋势：约每 110 个质量数上升一个数量级</text><circle cx="138.9" cy="269.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="144.9" cy="301.4" r="4" fill="#A32D2D"/><circle cx="150.9" cy="282.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="186.8" cy="228.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="192.8" cy="230.3" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="198.8" cy="232.9" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="204.8" cy="252.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="210.8" cy="296.5" r="4" fill="#A32D2D"/><circle cx="234.7" cy="211.3" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="243.7" cy="203.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="252.6" cy="198.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="258.6" cy="201.9" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="270.6" cy="197.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="276.6" cy="193.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="282.6" cy="185.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="288.5" cy="175.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="294.5" cy="193.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="297.5" cy="198.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="306.5" cy="196.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="315.5" cy="210.4" r="4" fill="#A32D2D"/><circle cx="330.4" cy="169.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="336.4" cy="182.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="342.4" cy="230.6" r="4" fill="#A32D2D"/><circle cx="348.4" cy="210.1" r="4" fill="#A32D2D"/><circle cx="363.3" cy="212.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="372.3" cy="168.8" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="381.3" cy="164.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="384.3" cy="163.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="387.3" cy="162.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="396.3" cy="166.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="402.2" cy="158.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="450.1" cy="174.8" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="462.1" cy="146.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="471.1" cy="144.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="480.0" cy="160.9" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="515.9" cy="147.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="527.9" cy="147.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="533.9" cy="145.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="536.9" cy="141.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="539.9" cy="137.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="554.8" cy="135.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="557.8" cy="134.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="575.8" cy="132.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="587.7" cy="131.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="593.7" cy="129.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="605.7" cy="128.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="611.7" cy="128.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="614.7" cy="127.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="623.6" cy="126.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="635.6" cy="126.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="641.6" cy="124.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="650.6" cy="121.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="659.6" cy="122.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="662.5" cy="125.0" r="5.5" fill="#854F0B"/><line x1="662.5" y1="119.0" x2="662.5" y2="103.0" stroke="#854F0B" stroke-width="1.2" stroke-dasharray="3 2"/><text x="662.5" y="97.0" font-size="11.5" fill="#854F0B" text-anchor="middle" font-weight="600">182W（内标）</text><circle cx="740.3" cy="127.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="743.3" cy="127.8" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="812.1" cy="121.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="830.1" cy="118.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="272" cy="306" r="4" fill="#A32D2D"/><text x="286.0" y="310.0" font-size="11.5" fill="#A32D2D" text-anchor="start" font-weight="normal">偏离趋势的 5 个：9Be、31P、66Zn、75As、77Se —— 用它们的数之前要单独查</text><rect x="30.0" y="356.0" width="838.0" height="56.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="44.0" y="376.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">轻元素在等离子体里受空间电荷排斥，传输效率低 → 未校正浓度系统性偏小 → RSF 远小于 1，重元素接近 1 甚至略高。</text><text x="44.0" y="394.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">红色几个（P、Be、Zn、As、Se）明显偏离趋势：它们要么本底高，要么受多原子离子干扰。</text><text x="44.0" y="406.0" font-size="12" fill="#2C2C2A" text-anchor="start" font-weight="normal"></text></svg>
+<svg viewBox="0 0 900 428" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">RSF 不是随手一除：它随质量数系统变化</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">58 个同位素各自的 RSF（本批数据，内标 182W）。纵轴指数刻度 —— 数值跨越三个数量级。</text><line x1="118.0" y1="330.0" x2="866.0" y2="330.0" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="334.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.001</text><line x1="118.0" y1="261.7" x2="866.0" y2="261.7" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="265.7" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.01</text><line x1="118.0" y1="193.3" x2="866.0" y2="193.3" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="197.3" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">0.1</text><line x1="118.0" y1="125.0" x2="866.0" y2="125.0" stroke="#E7E5DF" stroke-width="1"/><text x="110.0" y="129.0" font-size="11" fill="#888780" text-anchor="end" font-weight="normal" font-family="Consolas,Menlo,monospace">1</text><line x1="118.0" y1="125.0" x2="866.0" y2="125.0" stroke="#888780" stroke-width="1" stroke-dasharray="5 4"/><text x="124.0" y="117.0" font-size="10.5" fill="#888780" text-anchor="start" font-weight="normal">RSF = 1（与内标相当）</text><line x1="118.0" y1="84.0" x2="118.0" y2="330.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="330.0" x2="866.0" y2="330.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="330.0" x2="118.0" y2="334.0" stroke="#888780" stroke-width="1"/><text x="118.0" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">0</text><line x1="267.6" y1="330.0" x2="267.6" y2="334.0" stroke="#888780" stroke-width="1"/><text x="267.6" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">50</text><line x1="417.2" y1="330.0" x2="417.2" y2="334.0" stroke="#888780" stroke-width="1"/><text x="417.2" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">100</text><line x1="566.8" y1="330.0" x2="566.8" y2="334.0" stroke="#888780" stroke-width="1"/><text x="566.8" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">150</text><line x1="716.4" y1="330.0" x2="716.4" y2="334.0" stroke="#888780" stroke-width="1"/><text x="716.4" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">200</text><line x1="866.0" y1="330.0" x2="866.0" y2="334.0" stroke="#888780" stroke-width="1"/><text x="866.0" y="347.0" font-size="11" fill="#888780" text-anchor="middle" font-weight="normal" font-family="Consolas,Menlo,monospace">250</text><text x="492.0" y="366.0" font-size="12" fill="#5F5E5A" text-anchor="middle" font-weight="normal">同位素质量数</text><text x="30.0" y="366.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">RSF</text><polyline points="133.0,231.7 836.1,85.6" fill="none" stroke="#854F0B" stroke-width="1.5" stroke-dasharray="5 4"/><text x="856.0" y="76.0" font-size="11.5" fill="#854F0B" text-anchor="end" font-weight="normal">拟合趋势：约每 110 个质量数上升一个数量级</text><circle cx="138.9" cy="269.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="144.9" cy="301.4" r="4" fill="#A32D2D"/><circle cx="150.9" cy="282.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="186.8" cy="228.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="192.8" cy="230.3" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="198.8" cy="232.9" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="204.8" cy="252.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="210.8" cy="296.5" r="4" fill="#A32D2D"/><circle cx="234.7" cy="211.3" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="243.7" cy="203.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="252.6" cy="198.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="258.6" cy="201.9" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="270.6" cy="197.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="276.6" cy="193.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="282.6" cy="185.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="288.5" cy="175.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="294.5" cy="193.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="297.5" cy="198.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="306.5" cy="196.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="315.5" cy="210.4" r="4" fill="#A32D2D"/><circle cx="330.4" cy="169.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="336.4" cy="182.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="342.4" cy="230.6" r="4" fill="#A32D2D"/><circle cx="348.4" cy="210.1" r="4" fill="#A32D2D"/><circle cx="363.3" cy="212.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="372.3" cy="168.8" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="381.3" cy="164.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="384.3" cy="163.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="387.3" cy="162.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="396.3" cy="166.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="402.2" cy="158.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="450.1" cy="174.8" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="462.1" cy="146.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="471.1" cy="144.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="480.0" cy="160.9" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="515.9" cy="147.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="527.9" cy="147.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="533.9" cy="145.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="536.9" cy="141.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="539.9" cy="137.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="554.8" cy="135.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="557.8" cy="134.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="575.8" cy="132.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="587.7" cy="131.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="593.7" cy="129.1" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="605.7" cy="128.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="611.7" cy="128.2" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="614.7" cy="127.5" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="623.6" cy="126.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="635.6" cy="126.0" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="641.6" cy="124.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="650.6" cy="121.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="659.6" cy="122.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="662.5" cy="125.0" r="5.5" fill="#854F0B"/><line x1="662.5" y1="119.0" x2="662.5" y2="103.0" stroke="#854F0B" stroke-width="1.2" stroke-dasharray="3 2"/><text x="662.5" y="97.0" font-size="11.5" fill="#854F0B" text-anchor="middle" font-weight="600">182W（内标）</text><circle cx="740.3" cy="127.7" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="743.3" cy="127.8" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="812.1" cy="121.6" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="830.1" cy="118.4" r="3.4" fill="#534AB7" opacity="0.72"/><circle cx="272" cy="306" r="4" fill="#A32D2D"/><text x="286.0" y="310.0" font-size="11.5" fill="#A32D2D" text-anchor="start" font-weight="normal">偏离趋势的 5 个：9Be、31P、66Zn、75As、77Se —— 用它们的数之前要单独查</text><rect x="30.0" y="356.0" width="838.0" height="56.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="44.0" y="376.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">轻元素在等离子体里受空间电荷排斥，传输效率低 → 未校正浓度系统性偏小 → RSF 远小于 1，重元素接近 1 甚至略高。</text><text x="44.0" y="394.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">红色几个（P、Be、Zn、As、Se）明显偏离趋势：它们要么本底高，要么受多原子离子干扰。</text><text x="44.0" y="406.0" font-size="12" fill="#2C2C2A" text-anchor="start" font-weight="normal"></text></svg>
 <figcaption><b>图 5</b>　58 个同位素的 RSF 随质量数系统变化，跨越近三个数量级。偏离趋势的 5 个点（红）是已知在 ICP-MS 里难处理的元素。橙色虚线是对数据的实际拟合。</figcaption>
 </figure>
 
@@ -766,7 +821,7 @@ TERMITE 相当于假设"样品与参考物质的灵敏度相同"。对含量与�
 修不掉<em>不稳定的偏差</em>。怎么判断哪个元素不稳定？下一节的回收率。</p>
 </div>
 
-<h3>6.3 回收率：判断哪些元素能用</h3>
+<h3>7.3 回收率：判断哪些元素能用</h3>
 
 <p>对每一个参考物质文件、每一个元素，算：</p>
 
@@ -794,7 +849,7 @@ TERMITE 相当于假设"样品与参考物质的灵敏度相同"。对含量与�
 <p>所以「结果表里 40 个样品都有 Mg 的数」并不等于「Mg 的数可信」。
 它只是通过了检出限这一关。</p>
 
-<h3>6.4 内标元素自己那一列，是个恒等式</h3>
+<h3>7.4 内标元素自己那一列，是个恒等式</h3>
 
 <p>对本批数据，W 列的回收率在 10 个文件里全部是 <b>100.0%</b>，
 结果表里 40 个样品的 W 全部是 <b>638 500</b>。</p>
@@ -816,7 +871,7 @@ RSF<sub>IS</sub> = C<sub>IS</sub> / C<sub>IS</sub><sup>推荐</sup>(参考物质
 以及监控样的回收率。</p>
 </div>
 
-<h3>6.5 RSF 不可跨基体转移</h3>
+<h3>7.5 RSF 不可跨基体转移</h3>
 
 <p>RSF 把「剥蚀量 × 传输效率 × 电离效率」全打包吸收了。这三个量都依赖<strong>样品基体</strong>：
 白钨矿和硅酸盐玻璃的硬度、热导率、与激光的耦合效率完全不同。</p>
@@ -840,7 +895,7 @@ RSF<sub>IS</sub> = C<sub>IS</sub> / C<sub>IS</sub><sup>推荐</sup>(参考物质
 因为它们本来就不参与 RSF。</p>
 </div>
 
-<h3>6.6 一个能自己做的合理性检查</h3>
+<h3>7.6 一个能自己做的合理性检查</h3>
 
 <p>任何一次微量元素计算，都应该拿主量元素的化学计量比去对一遍。这是最廉价、
 最有效的自检。</p>
@@ -881,11 +936,11 @@ REE、Sr、Pb 会替换掉一部分 Ca，但替换 <em>Ca</em> 的离子摩尔�
 <p>这个检查对所有基体明确的样品都适用：锡石看 Sn，锆石看 Zr 与 Si，
 方解石看 Ca，长石看 Al 与 Si。做完一次计算，先算这个比值，再看微量元素。</p>
 
-<h2 id="c7">7. 内标怎么选：最容易出错的一步</h2>
+<h2 id="c8">8. 内标怎么选：最容易出错的一步</h2>
 
 <p>这是本批数据教给我最有用的一个教训，所以单独成章。</p>
 
-<h3>7.1 判据：剥蚀段信号最强的元素，就是主量元素</h3>
+<h3>8.1 判据：剥蚀段信号最强的元素，就是主量元素</h3>
 
 <p>内标需要在样品中<strong>含量已知且分布均匀</strong>。那怎么知道哪个元素满足？
 不要靠矿物学推断，直接看数据：</p>
@@ -904,7 +959,7 @@ REE、Sr、Pb 会替换掉一部分 Ca，但替换 <em>Ca</em> 的离子摩尔�
 <thead><tr><th>信号最强的同位素</th><th class="r">文件数</th><th>这些文件是</th><th>结论</th></tr></thead>
 <tbody>
 <tr><td class="n">182W</td><td class="r">40</td>
-    <td>19SH-43-x、19SH-63-x、19SH-7-x、19SH-Calc-Sch-x</td>
+    <td>S-01 … S-40（全部样品）</td>
     <td><b>全部样品都是白钨矿</b>（CaWO<sub>4</sub>）</td></tr>
 <tr><td class="n">27Al</td><td class="r">15</td>
     <td>BIR-1G、BCR-2G、BHVO-2G</td>
@@ -921,9 +976,9 @@ REE、Sr、Pb 会替换掉一部分 Ca，但替换 <em>Ca</em> 的离子摩尔�
 两个完全独立的判据给出同一个分类，说明分类是对的。</p>
 </div>
 
-<h3>7.2 用错内标会发生什么（真实数字）</h3>
+<h3>8.2 用错内标会发生什么（真实数字）</h3>
 
-<p>我一开始按目录名"锡石-白钨矿"判断，以为样品里有锡石，于是用
+<p>我一开始按目录名里的矿种猜测判断，以为样品里有锡石，于是用
 <strong>118Sn</strong> 当内标、按 SnO<sub>2</sub> 的化学计量取 C<sub>IS</sub> = 787 700 µg/g。
 跑出来是这样：</p>
 
@@ -952,7 +1007,7 @@ LA-ICP-MS 的结果没有任何机制会阻止程序输出一个物理上荒谬�
 它只是做算术。判断的义务在使用者身上。</p>
 </div>
 
-<h3>7.3 正确的内标含量怎么定</h3>
+<h3>8.3 正确的内标含量怎么定</h3>
 
 <p>内标含量 <code>C_IS</code> 必须<strong>已知</strong>。对纯矿物，用化学计量算：</p>
 
@@ -981,7 +1036,7 @@ LA-ICP-MS 的结果没有任何机制会阻止程序输出一个物理上荒谬�
 写文章时这两类结论要分开。</p>
 </div>
 
-<h3>7.4 一批样品有多种基体时怎么办</h3>
+<h3>8.4 一批样品有多种基体时怎么办</h3>
 
 <p>如果一批数据里真的混了锡石和白钨矿，一个内标套不住：
 锡石里 W 很低，白钨矿里 Sn 很低，无论选谁，另一半样品的分母都接近 0。</p>
@@ -997,10 +1052,9 @@ LA-ICP-MS 的结果没有任何机制会阻止程序输出一个物理上荒谬�
 <p>本批数据恰好全是白钨矿，所以单内标够用。这也是"先判断基体"这一步不能省的原因：
 <em>它决定你后面要不要分批，而不是用完再说。</em></p>
 
+<h2 id="c9">9. 结果怎么读：NA、0、LoD 各是什么意思</h2>
 
-<h2 id="c8">8. 结果怎么读：NA、0、LoD 各是什么意思</h2>
-
-<p>软件跑完了。打开 <code>Results_20230806CKDA.csv</code>，
+<p>软件跑完了。打开 <code>Results_batch_2023.csv</code>，
 40 行 59 列。然后你就会发现：<strong>大部分格子是空的。</strong></p>
 
 <p>本批数据 40 个样品 × 58 个元素 = 2 320 个格子，
@@ -1013,7 +1067,7 @@ LA-ICP-MS 的结果没有任何机制会阻止程序输出一个物理上荒谬�
 <figcaption><b>图 7</b>　40 个白钨矿样品、58 个元素最终留下数字的比例。满格的那 11 个元素正是白钨矿 CaWO₄ 晶格能容纳的元素。</figcaption>
 </figure>
 
-<h3>8.1 元素分成四档</h3>
+<h3>9.1 元素分成四档</h3>
 
 <table>
 <colgroup><col style="width:13%"><col style="width:14%"><col style="width:46%"><col style="width:27%"></colgroup>
@@ -1030,28 +1084,24 @@ LA-ICP-MS 的结果没有任何机制会阻止程序输出一个物理上荒谬�
     <td>谨慎。多数样品测不到，剩下的少数可能不具代表性</td></tr>
 <tr><td class="nw"><b>基本没有</b></td><td class="n r">≤ 0.05<br>（29 个）</td>
     <td class="n">Li Be B Al Si P K Sc Ti V Cr Mn Fe Co Ni Cu Zn Ge As Se Rb Cd In Sn Sb Cs Hf Bi</td>
-    <td><b>不要用。</b>见 8.2 成因 A/B</td></tr>
+    <td><b>不要用。</b>见 9.2 成因 A/B</td></tr>
 </tbody>
 </table>
 
-<p>这个分布本身就是一条地球化学信息。留下来的元素是
-<strong>Mg、Ca、Sr、Y、REE、Nb、Ta、U、Th、Pb</strong> —— 对白钨矿来说，
-这些正好是能进入 Ca<sup>2+</sup> 位的大离子（Sr<sup>2+</sup>、Pb<sup>2+</sup>、REE<sup>3+</sup>、
-Y<sup>3+</sup>、Na<sup>+</sup>）和进入 W<sup>6+</sup> 位的六次配位离子（Nb<sup>5+</sup>、Ta<sup>5+</sup>、
-Mo<sup>6+</sup>）。测不到的那些（Li、Be、B、Al、Si、Ti、Cr、Fe、Co、Ni、Cu、Zn、Rb、Cs、Bi）
-离子半径不合适或者电荷不匹配，在白钨矿里本来就极低。</p>
+<p>这个分布本身就是一条地球化学信息（第 <a href="#c4">4 章</a>的周期表讲的同一件事）：
+留下来的元素正好是能进入白钨矿晶格的离子，测不到的那些在白钨矿里本来就极低。</p>
 
 <div class="note">
 <p>所以「一大批元素是 NA」在多数情况下<strong>不是程序出问题</strong>，
 而是反映了矿物的真实晶体化学。判断的办法是看那些元素的信号是否真的低于空白 ——
-第 8.3 节给了一个可以直接用的判据。</p>
+第 9.3 节给了一个可以直接用的判据。</p>
 </div>
 
-<h3>8.2 三种 NA，成因完全不同</h3>
+<h3>9.2 三种 NA，成因完全不同</h3>
 
 <figure>
-<svg viewBox="0 0 900 330" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">结果表里的 NA 至少有三种成因，处理方式完全不同</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">下面两种都来自本例的真实数字，不是示意图。</text><rect x="30.0" y="66.0" width="400.0" height="244.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="46.0" y="90.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">A · 115In：离群窗口退化成一个点</text><text x="46.0" y="108.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">信号窗 49 行里，45 行计数恰好是 0</text><rect x="46.0" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="53.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="61.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="68.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="76.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="84.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="91.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="99.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="106.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="114.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="122.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="129.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="137.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="144.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="152.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="160.0" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="167.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="175.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="182.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="190.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="198.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="205.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="213.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="220.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="228.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="236.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="243.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="251.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="258.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="266.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="274.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="281.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="289.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="296.8" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="304.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="312.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="319.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="327.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="334.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="342.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="350.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="357.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="365.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="372.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="380.4" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="388.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="395.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="403.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="410.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><text x="46.0" y="162.0" font-size="11.5" fill="#A32D2D" text-anchor="start" font-weight="normal">↑ 4 行有信号（100 或 200 cps）</text><text x="46.0" y="182.0" font-size="12" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">中位数 = 0  ⇒  窗口 = [0×0.7 , 0×1.3] = [0, 0]</text><text x="46.0" y="204.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">留在这个点上的只有 0 本身；那 4 个真信号被判成「离群」扔掉。</text><rect x="46.0" y="218.0" width="368.0" height="34.0" fill="#FDF6F6" stroke="#E24B4A" stroke-width="1" rx="8"/><text x="58.0" y="240.0" font-size="12" fill="#A32D2D" text-anchor="start" font-weight="600">整数结果 = 0（不是 NA）→ 再被「≤0 置 NA」抹掉</text><rect x="46.0" y="262.0" width="368.0" height="34.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="58.0" y="284.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="600">对策：关掉离群检验，或改用 MAD / 3σ 判据</text><rect x="470.0" y="66.0" width="400.0" height="244.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="486.0" y="90.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">B · LoD = 0：空白段全是 0</text><text x="486.0" y="108.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">SRM 610 的 140Ce，空白窗 36 行取值全是 0</text><rect x="486.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="496.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="506.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="516.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="527.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="537.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="547.8" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="558.1" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="568.4" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="578.7" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="589.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="599.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="609.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="619.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="630.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="640.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="650.8" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="661.1" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="671.4" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="681.7" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="692.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="702.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="712.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="722.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="733.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="743.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="753.8" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="764.1" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="774.4" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="784.7" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="795.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="805.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="815.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="825.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="836.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="846.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><text x="486.0" y="162.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">仪器对低于阈值的计数直接写 0（Qtegra 的行为）</text><text x="486.0" y="182.0" font-size="12" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">σ(空白) = 0  ⇒  3σ = 0  ⇒  LoD = 0 / 净信号 × 推荐值 = 0</text><text x="486.0" y="204.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">LoD=0 不是「检出限无限好」，而是这个数已经失去含义。</text><rect x="486.0" y="218.0" width="368.0" height="34.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="498.0" y="240.0" font-size="12" fill="#854F0B" text-anchor="start" font-weight="600">后果：LoD 截断对 La、Ce、Nd、Yb、Th、U 等完全失效</text><rect x="486.0" y="262.0" width="368.0" height="34.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="498.0" y="284.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="600">对策：看到 LoD=0 就去查空白段，别当好事</text></svg>
-<figcaption><b>图 6</b>　结果表里的 NA 至少有两种成因，处理方式完全不同。左侧是 115In 被离群窗口吃掉的过程，右侧是 LoD 变成 0 的机制。两边的行数都是从真实文件里数出来的。</figcaption>
+<svg viewBox="0 0 900 330" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">结果表里的 NA 至少有三种成因，处理方式完全不同</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">下面两种都来自本批数据的真实数字，不是示意图。</text><rect x="30.0" y="66.0" width="400.0" height="244.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="46.0" y="90.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">A · In：离群窗口退化成一个点</text><text x="46.0" y="108.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">信号窗 49 行里，45 行计数恰好是 0</text><rect x="46.0" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="53.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="61.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="68.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="76.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="84.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="91.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="99.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="106.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="114.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="122.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="129.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="137.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="144.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="152.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="160.0" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="167.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="175.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="182.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="190.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="198.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="205.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="213.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="220.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="228.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="236.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="243.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="251.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="258.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="266.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="274.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="281.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="289.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="296.8" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="304.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="312.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="319.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="327.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="334.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="342.4" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="350.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="357.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="365.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="372.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="380.4" y="122.0" width="5.6" height="22.0" fill="#A32D2D" stroke="#A32D2D" stroke-width="1" rx="1.5"/><rect x="388.0" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="395.6" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="403.2" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="410.8" y="122.0" width="5.6" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><text x="46.0" y="162.0" font-size="11.5" fill="#A32D2D" text-anchor="start" font-weight="normal">↑ 4 行有信号（100 或 200 cps）</text><text x="46.0" y="182.0" font-size="12" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">中位数 = 0  ⇒  窗口 = [0×0.7 , 0×1.3] = [0, 0]</text><text x="46.0" y="204.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">留在这个点上的只有 0 本身；那 4 个真信号被判成「离群」扔掉。</text><rect x="46.0" y="218.0" width="368.0" height="34.0" fill="#FDF6F6" stroke="#E24B4A" stroke-width="1" rx="8"/><text x="58.0" y="240.0" font-size="12" fill="#A32D2D" text-anchor="start" font-weight="600">整数结果 = 0（不是 NA）→ 再被「≤0 置 NA」抹掉</text><rect x="46.0" y="262.0" width="368.0" height="34.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="58.0" y="284.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="600">对策：关掉离群检验，或改用 MAD / 3σ 判据</text><rect x="470.0" y="66.0" width="400.0" height="244.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="486.0" y="90.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">B · LoD = 0：空白段全是 0</text><text x="486.0" y="108.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">SRM 610 的 140Ce，空白窗 36 行取值全是 0</text><rect x="486.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="496.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="506.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="516.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="527.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="537.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="547.8" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="558.1" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="568.4" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="578.7" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="589.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="599.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="609.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="619.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="630.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="640.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="650.8" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="661.1" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="671.4" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="681.7" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="692.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="702.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="712.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="722.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="733.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="743.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="753.8" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="764.1" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="774.4" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="784.7" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="795.0" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="805.3" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="815.6" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="825.9" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="836.2" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><rect x="846.5" y="122.0" width="8.0" height="22.0" fill="#EFEEE9" stroke="#D3D1C7" stroke-width="1" rx="1.5"/><text x="486.0" y="162.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">仪器对低于阈值的计数直接写 0（Qtegra 的行为）</text><text x="486.0" y="182.0" font-size="12" fill="#534AB7" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">σ(空白) = 0  ⇒  3σ = 0  ⇒  LoD = 0 / 净信号 × 推荐值 = 0</text><text x="486.0" y="204.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">LoD=0 不是「检出限无限好」，而是这个数已经失去含义。</text><rect x="486.0" y="218.0" width="368.0" height="34.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="498.0" y="240.0" font-size="12" fill="#854F0B" text-anchor="start" font-weight="600">后果：LoD 截断对 La、Ce、Nd、Yb、Th、U 等完全失效</text><rect x="486.0" y="262.0" width="368.0" height="34.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="498.0" y="284.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="600">对策：看到 LoD=0 就去查空白段，别当好事</text></svg>
+<figcaption><b>图 6</b>　结果表里的 NA 至少有两种成因，处理方式完全不同。左侧是 In 被离群窗口吃掉的过程，右侧是 LoD 变成 0 的机制。两边的行数都是从真实文件里数出来的。</figcaption>
 </figure>
 
 <h4>成因 A：原始值 ≤ 0（真的测不到）</h4>
@@ -1060,7 +1110,7 @@ Mo<sup>6+</sup>）。测不到的那些（Li、Be、B、Al、Si、Ti、Cr、Fe�
 本批数据里的 Li、Be、Al、Si、P、K、Ti、V、Cr、Co、Ni、Cu、Zn、Rb、Cs、Bi
 基本都是这一类。</p>
 
-<p>前面第 4.4 节给的 7Li 就是标准案例：空白 1 600 cps、剥蚀段 1 600 cps，
+<p>前面第 5.4 节给的 7Li 就是标准案例：空白 1 600 cps、剥蚀段 1 600 cps，
 净信号 −69 cps。</p>
 
 <h4>成因 B：低于检出限（有信号，但不够强）</h4>
@@ -1072,13 +1122,13 @@ Mo<sup>6+</sup>）。测不到的那些（Li、Be、B、Al、Si、Ti、Cr、Fe�
 <table>
 <thead><tr><th>样品</th><th class="r">剥蚀段比空白高</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td class="n">19SH-43-5</td><td class="n r">3.33 倍</td><td rowspan="6">Fe 确实有信号（不是成因 A）。<br>
+<tr><td class="n">S-01</td><td class="n r">3.33 倍</td><td rowspan="6">Fe 确实有信号（不是成因 A）。<br>
 但折算出的浓度低于 LoD（115.8 µg/g），所以被截断</td></tr>
-<tr><td class="n">19SH-43-9</td><td class="n r">3.17 倍</td></tr>
-<tr><td class="n">19SH-63-2</td><td class="n r">3.33 倍</td></tr>
-<tr><td class="n">19SH-Calc-Sch-5</td><td class="n r">3.80 倍</td></tr>
-<tr><td class="n">19SH-Calc-Sch-14</td><td class="n r">3.60 倍</td></tr>
-<tr><td class="n">19SH-Calc-Sch-20</td><td class="n r">3.18 倍</td></tr>
+<tr><td class="n">S-09</td><td class="n r">3.17 倍</td></tr>
+<tr><td class="n">S-17</td><td class="n r">3.33 倍</td></tr>
+<tr><td class="n">S-25</td><td class="n r">3.80 倍</td></tr>
+<tr><td class="n">S-34</td><td class="n r">3.60 倍</td></tr>
+<tr><td class="n">S-40</td><td class="n r">3.18 倍</td></tr>
 </tbody>
 </table>
 
@@ -1097,12 +1147,12 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 
 <p>这一类最隐蔽 —— 数据本来是有的，被中间步骤扔掉了。</p>
 
-<p>回到第 5 章第 ③ 步：离群窗口是 <code>中位数 × (1 ± 30%)</code>。
+<p>回到第 6 章第 ③ 步：离群窗口是 <code>中位数 × (1 ± 30%)</code>。
 如果某个元素在信号窗内<strong>大部分行是 0</strong>，中位数就落在 0 上，
 窗口退化成 <code>[0, 0]</code>，所有非零点全部被判为离群值剔除，
 剩下的平均值是 0，最后被 <code>≤ 0 → NA</code> 抹掉。</p>
 
-<p>这不是理论推演。19SH-43-5 的 <b>115In</b>，信号窗 49 行的实际取值分布是：</p>
+<p>这不是理论推演。S-01 的 <b>115In</b>，信号窗 49 行的实际取值分布是：</p>
 
 <table>
 <thead><tr><th>取值（cps）</th><th class="r">行数</th></tr></thead>
@@ -1131,7 +1181,7 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 要做成开关并记录在方法里。</p>
 </div>
 
-<h3>8.3 LoD = 0 不是好事</h3>
+<h3>9.3 LoD = 0 不是好事</h3>
 
 <p>本批 58 个同位素里，有 <b>22 个的最终 LoD 恰好等于 0</b>：</p>
 
@@ -1139,7 +1189,7 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 
 <p>直觉上"检出限 = 0"听起来像好事。实际上它意味着这个数字<strong>已经失去含义</strong>。</p>
 
-<p>成因在第 5 章第 ⑦ 步的公式里：<code>LoD = 3σ(空白) / 净信号 × 推荐值</code>。
+<p>成因在第 6 章第 ⑦ 步的公式里：<code>LoD = 3σ(空白) / 净信号 × 推荐值</code>。
 看 SRM 610 里 140Ce 的空白段（36 行）：</p>
 
 <div class="formula">空白段 36 行的取值：全部恰好是 0<br>
@@ -1164,7 +1214,7 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 而不是当成 0 用。</p>
 </div>
 
-<h3>8.4 少数样品有值的元素，要特别小心</h3>
+<h3>9.4 少数样品有值的元素，要特别小心</h3>
 
 <p>看 <b>Hf</b>：40 个样品里只有 2 个有值（5%），值是 0.115 和 0.130 µg/g。
 范围窄得可疑。</p>
@@ -1177,7 +1227,7 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 如果一篇报告里写了"Hf = 0.12 µg/g"，读者会以为这是白钨矿的 Hf 含量；
 实际上你只测到了 40 个样品里的 2 个，而且它们只是刚好越过噪声。</p>
 
-<h3>8.5 RSD 旗标：哪些测点可能不均匀</h3>
+<h3>9.5 RSD 旗标：哪些测点可能不均匀</h3>
 
 <p>结果页上有些点会被标红。判据是对每个样品点算：</p>
 
@@ -1196,7 +1246,7 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 所以它对少数几个非常不稳定的点反而不敏感。它是提示，不是检测器。</p>
 </div>
 
-<h3>8.6 回家前的一张检查表</h3>
+<h3>9.6 回家前的一张检查表</h3>
 
 <table>
 <colgroup><col style="width:5%"><col style="width:42%"><col style="width:53%"></colgroup><thead><tr><th>#</th><th>检查什么</th><th>本批数据的答案</th></tr></thead>
@@ -1215,13 +1265,199 @@ Y 高 <b>6×10<sup>3</sup> 到 1.3×10<sup>5</sup> 倍</b>。量级差这么远�
 </tbody>
 </table>
 
-<h2 id="c9">9. 动手做一遍</h2>
 
-<h3>9.1 用界面（推荐第一次）</h3>
+<h2 id="c10">10. 点分析 vs 线扫描：两种提问方式</h2>
+
+<p>到目前为止讲的都是点分析（spot）。但 LA-ICP-MS 还有另一种工作模式：
+<strong>线扫描（line scan）</strong>—— 激光沿一条线连续移动剥蚀，
+样品台以恒定速度平移，得到"浓度随距离"的连续剖面。这两种模式回答的是不同的问题。</p>
+
+<figure>
+<svg viewBox="0 0 900 420" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">点分析 vs 线扫描：同一台仪器，两种提问方式</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">差别不在"准不准"，而在你问的是"这批样品平均怎么样"还是"这一个颗粒内部怎么变"。</text><rect x="30.0" y="66.0" width="400.0" height="320.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="46.0" y="90.0" font-size="15" fill="#534AB7" text-anchor="start" font-weight="600">点分析（spot）</text><text x="46.0" y="108.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">激光打一个圆斑，把整段信号平均成一个数</text><rect x="60.0" y="126.0" width="150.0" height="130.0" fill="#E8E4D6" stroke="#B9B4A2" stroke-width="1" rx="8"/><text x="135.0" y="150.0" font-size="11" fill="#5F5E5A" text-anchor="middle" font-weight="normal">矿物颗粒</text><circle cx="135.0" cy="200.0" r="30" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.6"/><text x="135.0" y="205.0" font-size="11" fill="#534AB7" text-anchor="middle" font-weight="600">一个点</text><line x1="220.0" y1="190.0" x2="300.0" y2="190.0" stroke="#888780" stroke-width="1.4"/><line x1="290.0" y1="190.0" x2="304.0" y2="190.0" stroke="#888780" stroke-width="1.6"/><polygon points="304.0,190.0 297.6,192.9 297.6,187.1" fill="#888780"/><rect x="306.0" y="150.0" width="108.0" height="78.0" fill="#FFFFFF" stroke="#D3D1C7" stroke-width="1" rx="6"/><text x="316.0" y="172.0" font-size="11" fill="#2C2C2A" text-anchor="600" font-weight="Consolas,Menlo,monospace">S-01</text><text x="316.0" y="190.0" font-size="11" fill="#5F5E5A" text-anchor="Consolas,Menlo,monospace" font-weight="normal">La = 64</text><text x="316.0" y="208.0" font-size="11" fill="#5F5E5A" text-anchor="Consolas,Menlo,monospace" font-weight="normal">Y = 6.7</text><text x="316.0" y="226.0" font-size="11" fill="#888780" text-anchor="Consolas,Menlo,monospace" font-weight="normal">…</text><text x="46.0" y="286.0" font-size="12" fill="#5F5E5A" text-anchor="Consolas,Menlo,monospace" font-weight="normal">40 个点 → 40 行 × 58 列</text><text x="46.0" y="306.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">回答：样品之间、矿物种类之间的差异</text><rect x="46.0" y="322.0" width="368.0" height="44.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="58.0" y="340.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">适合：矿物分类、判别图解、</text><text x="58.0" y="357.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">大批量统计对比、U-Pb 定年</text><rect x="470.0" y="66.0" width="400.0" height="320.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="10"/><text x="486.0" y="90.0" font-size="15" fill="#0F6E56" text-anchor="start" font-weight="600">线扫描（line scan）</text><text x="486.0" y="108.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">激光沿一条线连续剥蚀，得到"浓度随距离"的剖面</text><rect x="500.0" y="126.0" width="150.0" height="130.0" fill="#E8E4D6" stroke="#B9B4A2" stroke-width="1" rx="8"/><text x="575.0" y="150.0" font-size="11" fill="#5F5E5A" text-anchor="middle" font-weight="normal">矿物颗粒</text><line x1="530.0" y1="200.0" x2="620.0" y2="200.0" stroke="#0F6E56" stroke-width="2"/><line x1="620.0" y1="200.0" x2="642.0" y2="200.0" stroke="#0F6E56" stroke-width="2"/><text x="555.0" y="225.0" font-size="11" fill="#0F6E56" text-anchor="middle" font-weight="600">一条线</text><line x1="648.0" y1="190.0" x2="700.0" y2="190.0" stroke="#888780" stroke-width="1.4"/><rect x="706.0" y="160.0" width="152.0" height="90.0" fill="#FFFFFF" stroke="#D3D1C7" stroke-width="1" rx="6"/><polyline points="706.0,238.0 718.0,232.0 730.0,228.0 742.0,214.0 754.0,206.0 766.0,212.0 778.0,196.0 790.0,184.0 802.0,190.0 814.0,178.0 826.0,182.0 838.0,174.0 850.0,170.0" fill="none" stroke="#0F6E56" stroke-width="1.8"/><text x="782.0" y="156.0" font-size="10.5" fill="#888780" text-anchor="middle" font-weight="normal">浓度</text><text x="858.0" y="210.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="normal">距离</text><text x="486.0" y="286.0" font-size="12" fill="#5F5E5A" text-anchor="Consolas,Menlo,monospace" font-weight="normal">1 条线 → 数千个位置 × 58 列</text><text x="486.0" y="306.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">回答：一个颗粒内部怎么随位置变化</text><rect x="486.0" y="322.0" width="368.0" height="44.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="498.0" y="340.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">适合：环带、扩散剖面、包裹体、</text><text x="498.0" y="357.0" font-size="12" fill="#0F6E56" text-anchor="start" font-weight="normal">矿物边部-核部的成分演化</text><line x1="30.0" y1="402.0" x2="870.0" y2="402.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="420.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="normal">点分析在线扫能力上是"退化"的：把线扫的几千个位置压缩成一个点。所以能处理线扫的工具，通常也能处理点分析，反过来不一定。</text></svg>
+<figcaption><b>图 11</b>　点分析与线扫描的对比。点分析把一段信号平均成一个数，回答"样品之间怎么样"；线扫描给出浓度随距离的连续剖面，回答"颗粒内部怎么变"。</figcaption>
+</figure>
+
+<h3>10.1 差异不只是"数据量"</h3>
+
+<table>
+<thead><tr><th></th><th>点分析（spot）</th><th>线扫描（line scan）</th></tr></thead>
+<tbody>
+<tr><td><b>剥蚀方式</b></td><td>固定束斑打一个孔</td><td>束斑沿直线匀速移动</td></tr>
+<tr><td><b>空间信息</b></td><td>一个点的平均值（几十 µm 直径 × 深度）</td><td>沿线的连续剖面（µm 级采样）</td></tr>
+<tr><td><b>输出形状</b></td><td>每样品一行：40 个样品 → 40 行</td><td>每样品一条曲线：几千个位置 × 58 列</td></tr>
+<tr><td><b>信号形态</b></td><td>开剥后一个平台，取窗口平均</td><td>整段都是"信号"，没有"平台"可言</td></tr>
+<tr><td><b>典型用途</b></td><td>矿物间对比、判别图解、U-Pb 定年</td><td>环带、扩散剖面、包裹体识别、边-核演化</td></tr>
+<tr><td><b>积分窗口</b></td><td>空白窗 + 信号窗两段（如 25–60 / 70–118）</td><td>空白窗 + 整个剥蚀段（如 130–545）</td></tr>
+</tbody>
+</table>
+
+<p>最后一条在实际操作里最容易踩：两套示例脚本的<strong>默认积分窗口本来就不一样</strong>
+（原 TERMITE 的点分析默认 180–440、线扫描默认 130–545）。
+拿点分析的窗口去跑线扫，或者反过来，结果会整体错位。
+TERMITE 重写版把两组默认值分开保存，就是为了防这个错。</p>
+
+<h3>10.2 线扫能算什么：真实剖面</h3>
+
+<p>线扫的输出是<strong>每个位置一行</strong>的浓度表。下面用原仓库自带的线扫示例数据
+（NIST612 玻璃上一条 4.9 mm 的线，6 748 个采样位置）画出来：</p>
+
+<figure>
+<svg viewBox="0 0 900 470" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">线扫输出的是剖面，不是单个数（真实线扫数据，NIST612 玻璃）</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">上：Mg 沿 4.9 mm 长线的浓度剖面（指数刻度）；下：Sr/Ba 元素比值剖面。点分析只会给你其中一个平均点。</text><text x="30.0" y="72.0" font-size="10.5" fill="#888780" text-anchor="start" font-weight="normal">Mg，µg/g（指数刻度）</text><line x1="118.0" y1="78.0" x2="118.0" y2="210.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="210.0" x2="866.0" y2="210.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="210.0" x2="866.0" y2="210.0" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="214.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">10^2</text><line x1="118.0" y1="159.2" x2="866.0" y2="159.2" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="163.2" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">10^3</text><line x1="118.0" y1="108.5" x2="866.0" y2="108.5" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="112.5" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">10^4</text><polyline points="118.0,198.1 119.4,198.8 120.9,198.8 122.3,198.3 123.8,199.0 125.2,201.2 126.6,199.2 128.1,200.2 129.5,198.6 131.0,198.8 132.4,199.0 133.9,197.4 135.3,198.4 136.7,198.2 138.2,196.9 139.6,197.3 141.1,199.0 142.5,197.1 143.9,197.5 145.4,199.1 146.8,198.1 148.3,197.6 149.7,199.3 151.1,198.7 152.6,198.1 154.0,202.6 155.5,199.6 156.9,200.6 158.4,201.7 159.8,199.1 161.2,200.8 162.7,202.3 164.1,200.3 165.6,198.6 167.0,199.4 168.4,199.6 169.9,198.8 171.3,199.1 172.8,200.0 174.2,200.8 175.6,199.9 177.1,196.2 178.5,197.4 180.0,199.8 181.4,198.2 182.9,199.2 184.3,198.8 185.7,198.4 187.2,198.4 188.6,197.6 190.1,196.2 191.5,196.3 192.9,198.1 194.4,198.7 195.8,198.6 197.3,198.0 198.7,198.4 200.2,197.5 201.6,196.5 203.0,197.6 204.5,196.2 205.9,197.8 207.4,195.6 208.8,197.4 210.2,198.5 211.7,195.7 213.1,197.3 214.6,197.9 216.0,196.5 217.4,197.7 218.9,199.9 220.3,198.4 221.8,198.9 223.2,197.7 224.7,198.1 226.1,199.4 227.5,198.9 229.0,199.5 230.4,197.6 231.9,196.9 233.3,196.5 234.7,200.1 236.2,201.2 237.6,198.1 239.1,197.7 240.5,197.7 241.9,197.2 243.4,198.8 244.8,189.3 246.3,200.3 247.7,199.8 249.2,200.3 250.6,200.2 252.0,199.1 253.5,202.0 254.9,200.3 256.4,200.2 257.8,198.6 259.2,199.9 260.7,197.0 262.1,197.7 263.6,197.9 265.0,200.8 266.4,197.3 267.9,198.2 269.3,197.1 270.8,199.0 272.2,198.1 273.7,197.2 275.1,198.4 276.5,196.1 278.0,196.2 279.4,196.5 280.9,195.3 282.3,194.9 283.7,194.4 285.2,195.9 286.6,192.6 288.1,194.5 289.5,194.9 290.9,193.7 292.4,195.4 293.8,195.0 295.3,195.6 296.7,198.1 298.2,194.3 299.6,194.8 301.0,196.2 302.5,195.1 303.9,196.5 305.4,192.7 306.8,194.3 308.2,195.0 309.7,195.7 311.1,195.2 312.6,194.6 314.0,194.7 315.4,193.8 316.9,192.1 318.3,193.1 319.8,196.6 321.2,194.8 322.7,193.7 324.1,195.3 325.5,194.4 327.0,193.6 328.4,194.7 329.9,193.7 331.3,192.5 332.7,194.5 334.2,194.0 335.6,192.7 337.1,194.3 338.5,193.8 339.9,193.4 341.4,183.1 342.8,193.5 344.3,192.3 345.7,192.3 347.2,194.0 348.6,193.2 350.0,193.4 351.5,192.1 352.9,196.7 354.4,193.4 355.8,193.5 357.2,193.1 358.7,194.0 360.1,194.6 361.6,194.7 363.0,193.4 364.5,192.0 365.9,192.6 367.3,191.3 368.8,193.8 370.2,193.7 371.7,191.4 373.1,192.6 374.5,194.3 376.0,192.9 377.4,192.8 378.9,192.6 380.3,192.6 381.7,191.6 383.2,194.4 384.6,193.0 386.1,195.5 387.5,194.4 389.0,194.2 390.4,194.7 391.8,195.2 393.3,195.4 394.7,195.2 396.2,193.5 397.6,192.7 399.0,192.7 400.5,193.5 401.9,196.6 403.4,196.2 404.8,193.0 406.2,194.3 407.7,193.9 409.1,192.9 410.6,193.0 412.0,192.8 413.5,194.4 414.9,194.0 416.3,193.9 417.8,194.0 419.2,193.6 420.7,194.7 422.1,194.5 423.5,192.9 425.0,193.8 426.4,193.6 427.9,193.8 429.3,194.3 430.7,196.5 432.2,195.2 433.6,195.1 435.1,195.0 436.5,195.6 438.0,193.8 439.4,193.8 440.8,196.3 442.3,195.2 443.7,197.5 445.2,194.1 446.6,195.3 448.0,193.1 449.5,193.3 450.9,147.0 452.4,195.7 453.8,195.3 455.2,195.9 456.7,195.5 458.1,196.6 459.6,196.0 461.0,195.6 462.5,196.7 463.9,194.5 465.3,193.5 466.8,195.6 468.2,192.5 469.7,193.9 471.1,194.4 472.5,193.3 474.0,194.6 475.4,193.0 476.9,194.9 478.3,194.1 479.7,195.4 481.2,195.7 482.6,192.6 484.1,193.1 485.5,194.1 487.0,192.7 488.4,193.4 489.8,191.5 491.3,191.0 492.7,192.9 494.2,194.6 495.6,195.6 497.0,192.3 498.5,193.7 499.9,193.1 501.4,192.7 502.8,191.7 504.3,193.5 505.7,192.9 507.1,191.8 508.6,192.3 510.0,190.7 511.5,191.9 512.9,192.1 514.3,190.6 515.8,192.0 517.2,189.8 518.7,192.6 520.1,191.0 521.5,191.5 523.0,190.3 524.4,189.6 525.9,190.5 527.3,190.4 528.8,190.4 530.2,190.1 531.6,187.9 533.1,189.8 534.5,190.7 536.0,192.4 537.4,191.1 538.8,189.0 540.3,188.5 541.7,189.4 543.2,191.4 544.6,191.8 546.0,191.8 547.5,188.8 548.9,188.8 550.4,190.2 551.8,188.1 553.3,189.6 554.7,188.6 556.1,189.7 557.6,189.6 559.0,187.5 560.5,189.4 561.9,187.9 563.3,189.1 564.8,189.1 566.2,189.5 567.7,189.0 569.1,190.8 570.5,191.1 572.0,188.4 573.4,189.1 574.9,190.4 576.3,190.6 577.8,190.4 579.2,190.1 580.6,191.5 582.1,190.7 583.5,190.5 585.0,191.9 586.4,191.1 587.8,189.9 589.3,189.7 590.7,191.0 592.2,190.6 593.6,191.0 595.0,189.5 596.5,190.5 597.9,190.9 599.4,190.9 600.8,190.3 602.3,190.0 603.7,190.3 605.1,190.6 606.6,190.4 608.0,189.1 609.5,189.3 610.9,189.3 612.3,191.5 613.8,188.6 615.2,189.2 616.7,188.5 618.1,189.4 619.5,188.1 621.0,189.2 622.4,190.3 623.9,190.5 625.3,189.1 626.8,187.9 628.2,189.1 629.6,189.7 631.1,188.4 632.5,188.3 634.0,188.9 635.4,190.1 636.8,189.9 638.3,189.3 639.7,190.3 641.2,190.8 642.6,190.0 644.1,191.0 645.5,189.0 646.9,192.6 648.4,192.0 649.8,191.1 651.3,191.1 652.7,191.6 654.1,189.6 655.6,189.7 657.0,189.9 658.5,192.7 659.9,191.0 661.3,191.1 662.8,190.4 664.2,189.9 665.7,190.8 667.1,191.0 668.6,189.6 670.0,189.2 671.4,189.3 672.9,188.8 674.3,190.3 675.8,187.5 677.2,190.3 678.6,188.9 680.1,189.4 681.5,191.5 683.0,190.2 684.4,190.2 685.8,190.6 687.3,191.2 688.7,188.2 690.2,188.7 691.6,188.3 693.1,188.6 694.5,188.4 695.9,188.3 697.4,188.7 698.8,188.4 700.3,189.4 701.7,190.4 703.1,188.9 704.6,186.4 706.0,188.3 707.5,188.3 708.9,187.7 710.3,188.5 711.8,188.2 713.2,186.9 714.7,189.2 716.1,188.0 717.6,188.4 719.0,188.6 720.4,188.3 721.9,192.3 723.3,188.7 724.8,188.5 726.2,187.8 727.6,187.9 729.1,189.9 730.5,189.3 732.0,189.3 733.4,189.1 734.8,189.9 736.3,189.2 737.7,189.4 739.2,188.6 740.6,188.3 742.1,189.6 743.5,189.9 744.9,189.6 746.4,188.9 747.8,189.7 749.3,190.3 750.7,190.3 752.1,191.6 753.6,190.3 755.0,189.8 756.5,188.5 757.9,190.5 759.3,189.9 760.8,189.1 762.2,190.2 763.7,190.4 765.1,190.0 766.6,188.8 768.0,188.4 769.4,190.4 770.9,189.1 772.3,187.0 773.8,188.4 775.2,188.7 776.6,189.8 778.1,190.3 779.5,188.8 781.0,188.9 782.4,187.0 783.8,190.5 785.3,190.0 786.7,190.1 788.2,190.2 789.6,189.4 791.1,189.2 792.5,189.9 793.9,188.5 795.4,189.3 796.8,189.3 798.3,189.0 799.7,186.9 801.1,190.1 802.6,189.7 804.0,188.8 805.5,190.1 806.9,189.7 808.4,189.4 809.8,189.2 811.2,187.5 812.7,188.5 814.1,187.1 815.6,187.6 817.0,188.7 818.4,186.3 819.9,188.6 821.3,188.1 822.8,187.5 824.2,188.7 825.6,188.4 827.1,188.6 828.5,188.0 830.0,188.0 831.4,188.0 832.9,189.2 834.3,188.8 835.7,188.1 837.2,187.5 838.6,186.9 840.1,154.2 841.5,188.1 842.9,188.8 844.4,188.0 845.8,188.1 847.3,189.3 848.7,188.8 850.1,190.8 851.6,191.6 853.0,194.0 854.5,191.5 855.9,192.4 857.4,193.0 858.8,193.0 860.2,192.1 861.7,190.7 863.1,190.6 864.6,191.9 866.0,193.9" fill="none" stroke="#534AB7" stroke-width="1.5"/><circle cx="450.9" cy="147.0" r="3" fill="#A32D2D" stroke="#A32D2D" stroke-width="1.2"/><text x="282.9" y="139.0" font-size="10.5" fill="#A32D2D" text-anchor="start" font-weight="normal">尖峰 = 含 Mg 的杂质 / 包裹体</text><text x="866.0" y="72.0" font-size="10.5" fill="#534AB7" text-anchor="end" font-weight="normal">Mg 剖面：本底约 200–300，尖峰 2.4 万</text><text x="30.0" y="264.0" font-size="10.5" fill="#888780" text-anchor="start" font-weight="normal">Sr/Ba 比值</text><line x1="118.0" y1="270.0" x2="118.0" y2="402.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="402.0" x2="866.0" y2="402.0" stroke="#888780" stroke-width="1.5"/><line x1="118.0" y1="402.0" x2="866.0" y2="402.0" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="406.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">0</text><line x1="118.0" y1="375.6" x2="866.0" y2="375.6" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="379.6" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">2</text><line x1="118.0" y1="349.2" x2="866.0" y2="349.2" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="353.2" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">4</text><line x1="118.0" y1="322.8" x2="866.0" y2="322.8" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="326.8" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">6</text><line x1="118.0" y1="296.4" x2="866.0" y2="296.4" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="300.4" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">8</text><line x1="118.0" y1="270.0" x2="866.0" y2="270.0" stroke="#E7E5DF" stroke-width="1"/><text x="112.0" y="274.0" font-size="10.5" fill="#888780" text-anchor="end" font-weight="Consolas,Menlo,monospace">10</text><polyline points="118.0,367.9 119.4,366.7 120.9,363.4 122.3,361.9 123.8,355.9 125.2,364.3 126.6,369.4 128.1,367.9 129.5,365.1 131.0,362.9 132.4,360.9 133.9,360.0 135.3,363.6 136.7,362.3 138.2,355.8 139.6,359.8 141.1,362.5 142.5,363.3 143.9,363.1 145.4,367.0 146.8,364.6 148.3,371.2 149.7,368.4 151.1,372.8 152.6,360.7 154.0,372.3 155.5,360.7 156.9,362.2 158.4,367.5 159.8,363.2 161.2,364.2 162.7,363.3 164.1,371.8 165.6,372.9 167.0,366.5 168.4,367.2 169.9,361.4 171.3,367.3 172.8,373.1 174.2,365.2 175.6,355.8 177.1,368.1 178.5,364.4 180.0,368.1 181.4,373.4 182.9,373.0 184.3,365.3 185.7,356.0 187.2,367.3 188.6,368.8 190.1,370.4 191.5,363.6 192.9,366.6 194.4,366.9 195.8,370.7 197.3,361.5 198.7,368.1 200.2,363.6 201.6,357.4 203.0,365.6 204.5,363.3 205.9,367.1 207.4,360.7 208.8,363.7 210.2,358.1 211.7,372.3 213.1,367.2 214.6,370.2 216.0,364.9 217.4,366.2 218.9,368.3 220.3,373.9 221.8,353.8 223.2,374.0 224.7,364.5 226.1,373.5 227.5,375.0 229.0,371.8 230.4,365.8 231.9,370.8 233.3,373.2 234.7,357.9 236.2,372.3 237.6,362.5 239.1,363.7 240.5,368.2 241.9,374.5 243.4,371.0 244.8,373.0 246.3,372.3 247.7,369.1 249.2,376.2 250.6,367.4 252.0,369.0 253.5,366.4 254.9,370.2 256.4,369.8 257.8,369.5 259.2,367.0 260.7,372.0 262.1,367.0 263.6,370.2 265.0,372.7 266.4,363.8 267.9,366.9 269.3,370.4 270.8,369.0 272.2,374.2 273.7,360.9 275.1,367.3 276.5,372.2 278.0,373.5 279.4,366.6 280.9,370.2 282.3,368.1 283.7,353.7 285.2,367.0 286.6,369.9 288.1,366.6 289.5,368.9 290.9,366.5 292.4,362.1 293.8,366.5 295.3,366.8 296.7,374.2 298.2,370.1 299.6,373.3 301.0,365.5 302.5,374.6 303.9,367.0 305.4,369.3 306.8,368.7 308.2,361.3 309.7,347.6 311.1,368.9 312.6,370.0 314.0,373.8 315.4,372.2 316.9,374.0 318.3,361.1 319.8,371.0 321.2,369.6 322.7,369.6 324.1,353.6 325.5,365.4 327.0,359.5 328.4,372.3 329.9,371.4 331.3,361.6 332.7,363.1 334.2,358.0 335.6,369.8 337.1,365.5 338.5,365.8 339.9,362.5 341.4,367.7 342.8,370.1 344.3,371.7 345.7,366.7 347.2,362.4 348.6,366.3 350.0,367.1 351.5,372.3 352.9,369.9 354.4,365.4 355.8,371.3 357.2,367.6 358.7,366.8 360.1,358.3 361.6,370.5 363.0,375.2 364.5,374.2 365.9,363.8 367.3,363.8 368.8,361.2 370.2,365.0 371.7,363.3 373.1,364.4 374.5,364.8 376.0,367.1 377.4,354.9 378.9,372.8 380.3,366.6 381.7,368.7 383.2,369.3 384.6,353.3 386.1,372.5 387.5,357.7 389.0,369.2 390.4,370.6 391.8,371.9 393.3,367.5 394.7,363.4 396.2,368.3 397.6,368.6 399.0,370.2 400.5,368.9 401.9,369.6 403.4,372.9 404.8,365.4 406.2,363.6 407.7,366.3 409.1,373.2 410.6,374.0 412.0,367.9 413.5,369.3 414.9,373.2 416.3,367.8 417.8,365.5 419.2,372.0 420.7,364.9 422.1,360.9 423.5,372.5 425.0,367.4 426.4,367.5 427.9,375.8 429.3,365.1 430.7,368.2 432.2,375.9 433.6,364.1 435.1,371.2 436.5,371.7 438.0,371.9 439.4,369.9 440.8,361.5 442.3,367.9 443.7,367.2 445.2,370.7 446.6,354.7 448.0,369.6 449.5,369.8 450.9,336.6 452.4,363.2 453.8,368.9 455.2,363.5 456.7,364.0 458.1,369.8 459.6,368.6 461.0,361.3 462.5,364.5 463.9,368.4 465.3,362.9 466.8,363.7 468.2,367.0 469.7,363.6 471.1,369.4 472.5,366.9 474.0,357.8 475.4,365.9 476.9,368.4 478.3,371.8 479.7,373.7 481.2,362.3 482.6,372.9 484.1,364.1 485.5,366.7 487.0,360.9 488.4,367.7 489.8,361.0 491.3,368.2 492.7,358.1 494.2,365.4 495.6,359.8 497.0,364.9 498.5,365.2 499.9,366.5 501.4,362.0 502.8,366.8 504.3,362.8 505.7,362.4 507.1,363.2 508.6,351.4 510.0,364.2 511.5,362.6 512.9,357.3 514.3,362.4 515.8,367.1 517.2,354.8 518.7,362.8 520.1,362.0 521.5,360.9 523.0,359.1 524.4,361.1 525.9,360.7 527.3,361.0 528.8,369.5 530.2,366.3 531.6,358.2 533.1,361.3 534.5,366.9 536.0,368.2 537.4,360.9 538.8,365.5 540.3,369.3 541.7,365.0 543.2,370.7 544.6,360.7 546.0,365.6 547.5,373.5 548.9,357.4 550.4,369.1 551.8,372.0 553.3,362.2 554.7,372.3 556.1,370.0 557.6,367.7 559.0,370.5 560.5,375.0 561.9,365.2 563.3,368.8 564.8,367.2 566.2,371.4 567.7,369.5 569.1,370.1 570.5,357.7 572.0,365.7 573.4,357.2 574.9,361.3 576.3,353.5 577.8,352.7 579.2,353.4 580.6,339.6 582.1,355.9 583.5,347.5 585.0,344.6 586.4,353.5 587.8,356.5 589.3,353.5 590.7,364.0 592.2,359.4 593.6,351.6 595.0,359.9 596.5,346.4 597.9,354.4 599.4,356.3 600.8,353.9 602.3,348.0 603.7,349.5 605.1,347.1 606.6,358.2 608.0,363.8 609.5,363.2 610.9,360.9 612.3,353.9 613.8,360.4 615.2,370.0 616.7,364.8 618.1,357.3 619.5,363.7 621.0,349.9 622.4,370.6 623.9,354.9 625.3,365.1 626.8,349.5 628.2,352.8 629.6,356.6 631.1,361.4 632.5,361.9 634.0,362.4 635.4,362.0 636.8,364.6 638.3,367.2 639.7,363.8 641.2,365.0 642.6,369.9 644.1,368.4 645.5,367.1 646.9,352.7 648.4,354.4 649.8,362.9 651.3,351.8 652.7,368.8 654.1,361.8 655.6,363.8 657.0,372.2 658.5,367.7 659.9,355.2 661.3,360.0 662.8,363.9 664.2,367.6 665.7,366.0 667.1,360.1 668.6,360.7 670.0,363.9 671.4,360.8 672.9,354.9 674.3,353.0 675.8,356.1 677.2,353.4 678.6,354.9 680.1,369.4 681.5,361.9 683.0,362.0 684.4,363.3 685.8,363.2 687.3,365.8 688.7,365.0 690.2,370.2 691.6,362.7 693.1,362.0 694.5,360.9 695.9,356.5 697.4,361.1 698.8,369.2 700.3,364.2 701.7,370.4 703.1,365.1 704.6,363.0 706.0,367.6 707.5,363.7 708.9,360.7 710.3,368.7 711.8,367.3 713.2,365.2 714.7,342.5 716.1,366.6 717.6,358.8 719.0,360.8 720.4,358.4 721.9,364.1 723.3,355.0 724.8,349.5 726.2,364.2 727.6,364.6 729.1,364.1 730.5,359.5 732.0,352.0 733.4,356.8 734.8,361.0 736.3,345.8 737.7,354.8 739.2,362.7 740.6,357.3 742.1,351.8 743.5,345.7 744.9,355.8 746.4,359.7 747.8,361.5 749.3,360.3 750.7,368.6 752.1,365.0 753.6,357.0 755.0,355.9 756.5,358.4 757.9,370.6 759.3,356.4 760.8,365.3 762.2,354.9 763.7,362.9 765.1,359.3 766.6,359.6 768.0,364.8 769.4,366.3 770.9,354.6 772.3,363.4 773.8,361.8 775.2,357.1 776.6,361.5 778.1,366.2 779.5,350.8 781.0,367.1 782.4,369.6 783.8,366.6 785.3,365.1 786.7,351.9 788.2,349.8 789.6,270.0 791.1,360.4 792.5,344.9 793.9,356.6 795.4,364.6 796.8,358.0 798.3,365.4 799.7,363.2 801.1,362.5 802.6,362.3 804.0,363.5 805.5,364.8 806.9,354.5 808.4,345.1 809.8,357.5 811.2,361.8 812.7,353.9 814.1,367.2 815.6,356.6 817.0,367.6 818.4,366.5 819.9,372.8 821.3,369.5 822.8,360.2 824.2,363.9 825.6,350.4 827.1,365.2 828.5,363.2 830.0,370.4 831.4,366.3 832.9,361.7 834.3,363.2 835.7,373.5 837.2,353.8 838.6,365.6 840.1,286.2 841.5,357.1 842.9,367.6 844.4,362.2 845.8,373.1 847.3,359.3 848.7,365.5 850.1,366.5 851.6,365.7 853.0,372.4 854.5,362.0 855.9,358.6 857.4,360.8 858.8,370.0 860.2,365.0 861.7,364.6 863.1,352.8 864.6,364.1 866.0,367.0" fill="none" stroke="#0F6E56" stroke-width="1.5"/><text x="866.0" y="264.0" font-size="10.5" fill="#0F6E56" text-anchor="end" font-weight="normal">Sr/Ba 比值剖面（>10 的个别点截到顶）</text><text x="492.0" y="424.0" font-size="11.5" fill="#5F5E5A" text-anchor="middle" font-weight="normal">沿线的距离（mm）</text><rect x="30.0" y="428.0" width="840.0" height="30.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="44.0" y="447.0" font-size="12" fill="#854F0B" text-anchor="start" font-weight="normal">比值剖面的价值：内标或剥蚀量的波动会同时作用于分子分母，取比值后约掉 —— 环带、扩散这类真实的空间变化反而更清楚。</text></svg>
+<figcaption><b>图 12</b>　真实线扫数据（NIST612 玻璃，4.9 mm 剖面，6 748 个位置）。上：Mg 浓度剖面，尖峰是含 Mg 的杂质/包裹体；下：Sr/Ba 比值剖面 —— 比值约掉了漂移，真实的空间变化更清楚。</figcaption>
+</figure>
+
+<h3>10.3 线扫的比值剖面：最有用的输出之一</h3>
+
+<p>浓度剖面里同时混着两种变化：<em>真实的成分变化</em>（环带、扩散）
+和<em>假的变化</em>（内标漂移、剥蚀量波动）。看<strong>元素比值剖面</strong>
+可以把后者约掉 —— 分子分母同时被漂移影响，取比值后抵消：</p>
+
+<ul>
+<li><b>Sr/Ba、La/Y 这类比值</b>：对晶体化学敏感，常用来识别生长环带；</li>
+<li><b>比值剖面的台阶</b>：往往对应成分突变面（环带边界、裂隙、包裹体边缘）；</li>
+<li><b>比值的绝对值不依赖 C<sub>IS</sub></b>：内标含量填错了，比值剖面照样是对的
+（误差等比例作用于所有元素，相除时约掉）。</li>
+</ul>
+
+<div class="ok">
+<p><b>怎么拿到比值剖面：</b>线扫结果表（<code>Results_*_linescan.csv</code>）
+每一行是一个位置、每一列是一个元素的浓度。任意两列相除就是那个元素对的比值剖面，
+在 Excel 或任何绘图工具里一步可得。上面的 Sr/Ba 剖面就是这样算出来的 ——
+不是什么神秘功能，就是两列相除。</p>
+</div>
+
+<div class="warn">
+<p><b>线扫有两个原脚本遗留的坑，重写版修掉了：</b></p>
+<p>① 原脚本的线扫描分支<strong>一跑就崩</strong>（先卸载了后面还要用的包），
+仓库里那份线扫结果其实是旧版本留下的；② 剖面的 x 轴（距离）与数据行
+<strong>错位一个固定偏移</strong>，整条曲线平移 0.78 µm。
+两处在重写版里都修了（<code>docs/FIXES.md</code> 的 F1/F2/F8），
+并保留开关可以切回原行为对拍。</p>
+</div>
+
+<h2 id="c11">11. 常见处理软件，以及这个工具的位置</h2>
+
+<p>微量元素归算不是新问题。在你之前，已经有不少人把同一条公式做成了软件。
+选工具之前，值得知道每家管哪一段。</p>
+
+<figure>
+<svg viewBox="0 0 900 470" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">常见 LA-ICP-MS 数据处理软件，各管一段</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">它们的内核都是同一条公式（内标归一 + RSF），区别在平台、交互方式和线扫能力。</text><text x="34.0" y="72.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="600">软件</text><text x="218.0" y="72.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="600">首发/团队</text><text x="336.0" y="72.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="600">平台</text><text x="434.0" y="72.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="600">许可</text><text x="556.0" y="72.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="600">点分析</text><text x="648.0" y="72.0" font-size="11.5" fill="#888780" text-anchor="start" font-weight="600">线扫</text><rect x="26.0" y="76.0" width="848.0" height="48.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="34.0" y="100.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">GLITTER</text><text x="218.0" y="100.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2001 · GEMOC/麦考瑞</text><text x="336.0" y="100.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">IDL</text><text x="434.0" y="100.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">商业</text><text x="564.0" y="102.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="656.0" y="102.0" font-size="13" fill="#888780" text-anchor="middle" font-weight="normal">○</text><text x="700.0" y="100.0" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">最早的实时交互处理，点分析</text><line x1="642.0" y1="76.0" x2="642.0" y2="124.0" stroke="#D3D1C7" stroke-width="1"/><line x1="544.0" y1="76.0" x2="544.0" y2="124.0" stroke="#D3D1C7" stroke-width="1"/><rect x="26.0" y="132.0" width="848.0" height="48.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="34.0" y="156.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">Iolite</text><text x="218.0" y="156.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2011 · 墨尔本大学</text><text x="336.0" y="156.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">Igor/C++</text><text x="434.0" y="156.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2.5 免费后商业</text><text x="564.0" y="158.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="656.0" y="158.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="700.0" y="156.0" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">可视化强，支持线扫与二维成像</text><line x1="642.0" y1="132.0" x2="642.0" y2="180.0" stroke="#D3D1C7" stroke-width="1"/><line x1="544.0" y1="132.0" x2="544.0" y2="180.0" stroke="#D3D1C7" stroke-width="1"/><rect x="26.0" y="188.0" width="848.0" height="48.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="34.0" y="212.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">SILLS</text><text x="218.0" y="212.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2008 · ETH</text><text x="336.0" y="212.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">MATLAB</text><text x="434.0" y="212.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">免费</text><text x="564.0" y="214.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="656.0" y="214.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="700.0" y="212.0" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">含线扫与元素成像</text><line x1="642.0" y1="188.0" x2="642.0" y2="236.0" stroke="#D3D1C7" stroke-width="1"/><line x1="544.0" y1="188.0" x2="544.0" y2="236.0" stroke="#D3D1C7" stroke-width="1"/><rect x="26.0" y="244.0" width="848.0" height="48.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="34.0" y="268.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">ICPMSDataCal</text><text x="218.0" y="268.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2008 · 中国地质大学(武汉)</text><text x="336.0" y="268.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">Excel/VB</text><text x="434.0" y="268.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">免费</text><text x="564.0" y="270.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="656.0" y="270.0" font-size="13" fill="#888780" text-anchor="middle" font-weight="normal">○</text><text x="700.0" y="268.0" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">国内常用，点分析 + U-Pb</text><line x1="642.0" y1="244.0" x2="642.0" y2="292.0" stroke="#D3D1C7" stroke-width="1"/><line x1="544.0" y1="244.0" x2="544.0" y2="292.0" stroke="#D3D1C7" stroke-width="1"/><rect x="26.0" y="300.0" width="848.0" height="48.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="34.0" y="324.0" font-size="13.5" fill="#2C2C2A" text-anchor="start" font-weight="600">LADR</text><text x="218.0" y="324.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2018 · CODES</text><text x="336.0" y="324.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">VBA/Excel</text><text x="434.0" y="324.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">商业</text><text x="564.0" y="326.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="656.0" y="326.0" font-size="13" fill="#888780" text-anchor="middle" font-weight="normal">○</text><text x="700.0" y="324.0" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">界面友好，点分析</text><line x1="642.0" y1="300.0" x2="642.0" y2="348.0" stroke="#D3D1C7" stroke-width="1"/><line x1="544.0" y1="300.0" x2="544.0" y2="348.0" stroke="#D3D1C7" stroke-width="1"/><rect x="26.0" y="356.0" width="848.0" height="48.0" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" rx="8"/><text x="34.0" y="380.0" font-size="13.5" fill="#534AB7" text-anchor="start" font-weight="600">TERMITE</text><text x="218.0" y="380.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">2017 · Mainz（本文重构）</text><text x="336.0" y="380.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">R/Shiny</text><text x="434.0" y="380.0" font-size="11" fill="#5F5E5A" text-anchor="start" font-weight="normal">免费开源</text><text x="564.0" y="382.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="656.0" y="382.0" font-size="13" fill="#0F6E56" text-anchor="middle" font-weight="normal">●</text><text x="700.0" y="380.0" font-size="11" fill="#888780" text-anchor="start" font-weight="normal">零依赖、逐位验证、点+线扫</text><line x1="642.0" y1="356.0" x2="642.0" y2="404.0" stroke="#D3D1C7" stroke-width="1"/><line x1="544.0" y1="356.0" x2="544.0" y2="404.0" stroke="#D3D1C7" stroke-width="1"/><line x1="26.0" y1="68.0" x2="700.0" y2="68.0" stroke="#D3D1C7" stroke-width="1"/><rect x="30.0" y="420.0" width="840.0" height="52.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="44.0" y="440.0" font-size="12.5" fill="#854F0B" text-anchor="start" font-weight="600">TERMITE 的独特之处：免费开源 + 纯 base R 零第三方依赖 + 逐位一致性测试（对拍原始脚本）。</text><text x="44.0" y="456.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">这意味着它不依赖任何会停更的平台或付费许可，任何人拿到 R 就能复现每一格数字。</text></svg>
+<figcaption><b>图 10</b>　常见 LA-ICP-MS 数据处理软件的能力对照。内核公式各家相同，差别在平台、交互方式与线扫能力；TERMITE 的差异点是零依赖、开源、逐位验证。</figcaption>
+</figure>
+
+<h3>11.1 它们都是同一条公式</h3>
+
+<p>把各家软件的文档翻到底，内核都是第 <a href="#c6">6 章</a>那条链：
+扣背景 → 内标归一 → 参考物质定标 → 检出限截断。
+<strong>区别不在公式，在外围：</strong>信号区间怎么选（交互拖动 vs 填行号）、
+漂移怎么插值（线性 vs 平滑）、支持什么采集模式（点 / 线 / 面）、
+以及你能不能看到、改到每一步的计算代码。</p>
+
+<h3>11.2 这个工具的取舍</h3>
+
+<ul>
+<li><b>牺牲了：</b>交互拖选积分区间的顺手程度（你得看图后填行号）、
+干扰校正（高 W 基体对 Ta、Re 的拖尾这类，要自己在选通道时避开）。</li>
+<li><b>换来了：</b>零第三方依赖（拿到任何一台装了 R 的机器就能跑）、
+每一步可核对（公式与源码一一对应，本文每张图都能追到具体文件）、
+以及一条其他人很难提供的保证 —— <strong>与原始脚本逐位一致</strong>。</li>
+</ul>
+
+<div class="note">
+<p>"逐位一致"的意思是：在复刻模式下，重写内核与 2017 年原始脚本在同一批数据上的输出
+<strong>每一个数字都完全相同</strong>（偏差 0.000e+00，见仓库
+<code>tests/test-parity.R</code>）。这意味着你过去用原脚本算的历史结果，
+不需要重算就能衔接。</p>
+</div>
+
+<h2 id="c12">12. 原始脚本为什么要被不断更新</h2>
+
+<p>科研代码有一个和商业软件完全不同的生命周期：它通常是一个人、为一个仪器、
+在一段基金周期内写成的，写完能跑就算交付。但它承载的<em>方法</em>
+会被使用十年以上。中间隔着依赖升级、仪器换代、操作系统迁移 ——
+每一样都可能让"当年能跑"变成"今天跑不了"。</p>
+
+<figure>
+<svg viewBox="0 0 900 440" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">原始脚本为什么要被重写：四类会"腐烂"的东西</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">科研代码最大的敌人不是算错，是"当时能跑、现在跑不了、别人跑不了、自己也复现不了"。</text><text x="40.0" y="66.0" font-size="11" fill="#888780" text-anchor="start" font-weight="600">问题</text><text x="186.0" y="66.0" font-size="11" fill="#888780" text-anchor="start" font-weight="600">代码里长什么样</text><text x="430.0" y="66.0" font-size="11" fill="#888780" text-anchor="start" font-weight="600">后果</text><text x="698.0" y="66.0" font-size="11" fill="#888780" text-anchor="start" font-weight="600">→ 重写后</text><rect x="30.0" y="74.0" width="138.0" height="66.0" fill="#FDF6F6" stroke="#E24B4A" stroke-width="1" rx="8"/><text x="42.0" y="100.0" font-size="13" fill="#A32D2D" text-anchor="start" font-weight="600">依赖腐烂</text><rect x="176.0" y="74.0" width="236.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="188.0" y="96.0" font-size="9.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">matrixStats / ggplot2 / reshape2 / miscTools</text><rect x="420.0" y="74.0" width="260.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="432.0" y="96.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">某个包停更或改名，整脚本在第 1 行就死掉；</text><text x="432.0" y="113.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">换台机器就装不上</text><rect x="688.0" y="74.0" width="182.0" height="66.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="700.0" y="96.0" font-size="10.5" fill="#0F6E56" text-anchor="start" font-weight="600">重写成纯 base R，只剩 shiny 一</text><text x="700.0" y="113.0" font-size="10.5" fill="#0F6E56" text-anchor="start" font-weight="600">个依赖</text><rect x="30.0" y="152.0" width="138.0" height="66.0" fill="#FDF6F6" stroke="#E24B4A" stroke-width="1" rx="8"/><text x="42.0" y="178.0" font-size="13" fill="#A32D2D" text-anchor="start" font-weight="600">格式写死</text><rect x="176.0" y="152.0" width="236.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="188.0" y="174.0" font-size="9.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">表头第 3 行、数据第 4 行、12 个同位素</text><rect x="420.0" y="152.0" width="260.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="432.0" y="174.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">换一个仪器导出格式就全部错位；新仪器 58 通</text><text x="432.0" y="191.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">道、表头在第 14 行</text><rect x="688.0" y="152.0" width="182.0" height="66.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="700.0" y="174.0" font-size="10.5" fill="#0F6E56" text-anchor="start" font-weight="600">按内容识别格式，不写死行号</text><rect x="30.0" y="230.0" width="138.0" height="66.0" fill="#FDF6F6" stroke="#E24B4A" stroke-width="1" rx="8"/><text x="42.0" y="256.0" font-size="13" fill="#A32D2D" text-anchor="start" font-weight="600">隐藏 bug</text><rect x="176.0" y="230.0" width="236.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="188.0" y="252.0" font-size="9.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">线扫描分支 detach 掉还在用的包 → 必崩</text><rect x="420.0" y="230.0" width="260.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="432.0" y="252.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">线扫描看起来"有代码"，实际一跑就死；仓库里</text><text x="432.0" y="269.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">的线扫结果是旧版留下的</text><rect x="688.0" y="230.0" width="182.0" height="66.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="700.0" y="252.0" font-size="10.5" fill="#0F6E56" text-anchor="start" font-weight="600">最小修补后跑通，并逐位对拍验证</text><rect x="30.0" y="308.0" width="138.0" height="66.0" fill="#FDF6F6" stroke="#E24B4A" stroke-width="1" rx="8"/><text x="42.0" y="334.0" font-size="13" fill="#A32D2D" text-anchor="start" font-weight="600">不可复现</text><rect x="176.0" y="308.0" width="236.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="188.0" y="330.0" font-size="9.5" fill="#5F5E5A" text-anchor="start" font-weight="normal" font-family="Consolas,Menlo,monospace">无测试、无参数记录</text><rect x="420.0" y="308.0" width="260.0" height="66.0" fill="#F7F6F3" stroke="#D3D1C7" stroke-width="1" rx="8"/><text x="432.0" y="330.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">半年后连作者自己都复现不出原数；改一处不知</text><text x="432.0" y="347.0" font-size="10.5" fill="#5F5E5A" text-anchor="start" font-weight="normal">道会不会改坏别处</text><rect x="688.0" y="308.0" width="182.0" height="66.0" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="1" rx="8"/><text x="700.0" y="330.0" font-size="10.5" fill="#0F6E56" text-anchor="start" font-weight="600">逐位一致性测试 + 运行参数记录</text><rect x="30.0" y="396.0" width="840.0" height="34.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><text x="44.0" y="417.0" font-size="12" fill="#854F0B" text-anchor="start" font-weight="600">结论：可维护性不是"锦上添花"，而是科学结果可复现的前提。原始脚本是 2017 年的可用成果，但要在 2026 年继续用，就必须重写。</text></svg>
+<figcaption><b>图 13</b>　原始脚本的四类"腐烂"与对应的重写对策。最危险的是安静的腐烂：线扫描分支一跑就崩，而仓库里的线扫结果是旧版留下的，没人发现。</figcaption>
+</figure>
+
+<h3>12.1 四类"腐烂"里，最危险的是第三类</h3>
+
+<p>依赖装不上、格式对不上，这些失败是<strong>响的</strong> —— 程序报错，你知道出事了。
+最危险的是<strong>安静的腐烂</strong>：线扫描分支的致命错误意味着"点分析的结果可信"
+会给整个脚本背书，而线扫描的输出其实来自一个跑不通的分支 ——
+仓库里那份线扫结果是旧版本留下的，没人发现。
+如果有人拿它当基准去校自己的新代码，就<strong>把 bug 传给了下一代</strong>。</p>
+
+<div class="warn">
+<p><b>本文的立场：</b>原始脚本不是"写错了的代码"，而是 2017 年的可用成果。
+它的每一条算法定义（中位数背景、30% 离群窗、RSF 均值、3σ 检出限）
+都被重写版完整保留；改动的只有会崩溃、会算错的部分，
+而且每处数值改动都留了开关（<code>legacy_lod</code> 等），
+让你随时可以切回 2017 年的行为复现旧结果。<strong>尊重原作的方式不是不动它，
+而是让它的方法能在十年后继续被验证。</strong></p>
+</div>
+
+<h3>12.2 更新会一直继续下去</h3>
+
+<p>重写不等于终点。下面这些是已知、但本轮还没做的：</p>
+
+<ul>
+<li>线扫的<strong>干扰校正</strong>（高 W 基体下 Ta、Re 的拖尾修正）；</li>
+<li>离群判据的<strong>MAD / 3σ 选项</strong>（现只有固定百分比窗）；</li>
+<li>逐点内标含量（配合 EPMA 主量数据，解决混合基体批次）；</li>
+<li>监控样推荐值表的补全（BIR-1G 等三行，见附录 B）。</li>
+</ul>
+
+<p>每一项都会遵循同一条纪律：<strong>先加测试，再改代码，数值变化必须可解释、可关闭。</strong></p>
+
+<h2 id="c13">13. AI 参与了哪些工作（诚实版）</h2>
+
+<p>这个仓库的重写过程大量使用了 AI。这一节把"AI 做了什么、人核对了什么"
+写清楚 —— 不是宣传，而是因为<strong>任何使用本工具的人都有权知道它的产出路径</strong>。</p>
+
+<figure>
+<svg viewBox="0 0 900 380" font-family="Microsoft YaHei,PingFang SC,system-ui,sans-serif" xmlns="http://www.w3.org/2000/svg" role="img"><text x="30.0" y="28.0" font-size="15" fill="#2C2C2A" text-anchor="start" font-weight="600">这次重写里，AI 做了什么、人核对了什么</text><text x="30.0" y="47.0" font-size="12.5" fill="#888780" text-anchor="start" font-weight="normal">AI 负责量大、可机械验证的部分；人负责要判断、要负责任的部分。二者用"逐位对拍"连起来。</text><rect x="30.0" y="66.0" width="400.0" height="280.0" fill="#EEEDFE" stroke="#534AB7" stroke-width="1" rx="10"/><text x="46.0" y="92.0" font-size="14" fill="#534AB7" text-anchor="start" font-weight="600">AI 完成的部分（可验证的"体力活"）</text><circle cx="50.0" cy="114.0" r="3.5" fill="#534AB7" stroke="#534AB7" stroke-width="1"/><text x="64.0" y="118.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">通读 1150 行原始脚本，把算法定义梳理出来</text><circle cx="50.0" cy="150.0" r="3.5" fill="#534AB7" stroke="#534AB7" stroke-width="1"/><text x="64.0" y="154.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">逐函数重写为纯 base R（去掉 4 个外部依赖）</text><circle cx="50.0" cy="186.0" r="3.5" fill="#534AB7" stroke="#534AB7" stroke-width="1"/><text x="64.0" y="190.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">跑两套结果、逐格比对，直到偏差 = 0</text><circle cx="50.0" cy="222.0" r="3.5" fill="#534AB7" stroke="#534AB7" stroke-width="1"/><text x="64.0" y="226.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">生成这套文档与全部插图（数字都来自真实数据）</text><circle cx="50.0" cy="258.0" r="3.5" fill="#534AB7" stroke="#534AB7" stroke-width="1"/><text x="64.0" y="262.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">写测试，把"对拍"固化成一条命令</text><rect x="470.0" y="66.0" width="400.0" height="280.0" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1" rx="10"/><text x="486.0" y="92.0" font-size="14" fill="#0F6E56" text-anchor="start" font-weight="600">人核对的部分（要判断、要负责任）</text><circle cx="490.0" cy="114.0" r="3.5" fill="#0F6E56" stroke="#0F6E56" stroke-width="1"/><text x="504.0" y="118.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">内标选什么、积分窗口取哪几行 —— 只有做的人知道</text><circle cx="490.0" cy="150.0" r="3.5" fill="#0F6E56" stroke="#0F6E56" stroke-width="1"/><text x="504.0" y="154.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">关键数字逐个复核，确认不是"看着像对"</text><circle cx="490.0" cy="186.0" r="3.5" fill="#0F6E56" stroke="#0F6E56" stroke-width="1"/><text x="504.0" y="190.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">判读哪些元素能用、哪些是测不到（不是程序能答的）</text><circle cx="490.0" cy="222.0" r="3.5" fill="#0F6E56" stroke="#0F6E56" stroke-width="1"/><text x="504.0" y="226.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">结果的地质意义、RSF 能否跨基体 —— 由人下结论</text><circle cx="490.0" cy="258.0" r="3.5" fill="#0F6E56" stroke="#0F6E56" stroke-width="1"/><text x="504.0" y="262.0" font-size="12" fill="#5F5E5A" text-anchor="start" font-weight="normal">决定修 bug 时哪些"修正"要留开关，保证可复现</text><rect x="30.0" y="356.0" width="840.0" height="0.0" fill="#FAEEDA" stroke="#FAC775" stroke-width="1" rx="8"/><line x1="30.0" y1="356.0" x2="870.0" y2="356.0" stroke="#D3D1C7" stroke-width="1"/><text x="30.0" y="374.0" font-size="11.5" fill="#854F0B" text-anchor="start" font-weight="normal">交接点：AI 每改一处数值，都必须通过 tests/test-parity.R 的逐位比对（最大偏差 ≤ 1e-9）——这是"AI 写的代码"和"可信的代码"之间的那道闸门。</text></svg>
+<figcaption><b>图 14</b>　重写过程中 AI 与人的分工。AI 负责可机械验证的部分，人负责需要判断的部分，两者以逐位对拍测试为闸门。</figcaption>
+</figure>
+
+<h3>13.1 为什么这个分工是安全的</h3>
+
+<p>AI 写代码的风险不在于"写不出来"，而在于<strong>看起来对</strong>：
+公式抄错一个下标、窗口偏移一行、正则吃掉一个负号 —— 这些错误肉眼审查极难发现，
+但会让结果系统性偏差。所以整个流程里，AI 的每一处数值改动都被强制穿过同一道闸门：</p>
+
+<div class="formula">tests/test-parity.R：重写内核（复刻模式） vs 原始脚本<br>
+点分析 40 × 12 格、线扫描 6 748 × 12 格，最大相对偏差 = 0.000e+00，NA 模式完全一致</div>
+
+<p>这道闸门把"AI 写的代码"变成"与 2017 年原始脚本逐位等价的代码"。
+修 bug 引入的数值变化（负号、LoD 选取、时间轴）则全部做成<strong>开关</strong>，
+默认修正、可切回复刻 —— 每一个差异都能被解释，也都能被关闭。</p>
+
+<h3>13.2 AI 不能替你做的部分</h3>
+
+<p>以下判断 AI 全程没有参与，也不应该参与：</p>
+
+<ul>
+<li><strong>内标选什么、窗口取哪几行</strong> —— 需要看着原始信号曲线和样品实况决定；</li>
+<li><strong>哪些元素的结果可用</strong> —— 需要晶体化学和基体知识（第 <a href="#c9">9 章</a>的判断）；</li>
+<li><strong>RSF 能否跨基体、数据有没有地质意义</strong> —— 这是科学结论，署名的人负责。</li>
+</ul>
+
+<div class="note">
+<p>这份文档本身也是 AI 起草的。如果你在文中发现任何与你设备上的实测不符的数字，
+那不是"AI 的风格问题"，是<strong>必须修的 bug</strong> ——
+欢迎对着附录 B 的出处逐个核对。</p>
+</div>
+
+<h2 id="c14">14. 动手做一遍</h2>
+
+<h3>14.1 用界面（推荐第一次）</h3>
 
 <p>在 R 里启动：</p>
 
-<pre><code>setwd("G:/TERMITE/TERMITE-master")
+<pre><code>setwd("&lt;仓库目录&gt;")     # 即 TERMITE-master 所在目录
 shiny::runApp(".")</code></pre>
 
 <p>然后按左侧栏从上到下走一遍。<strong>每一块都只填这一次要用的东西</strong>，
@@ -1233,7 +1469,7 @@ shiny::runApp(".")</code></pre>
 <thead><tr><th>字段</th><th>填什么</th><th>为什么</th></tr></thead>
 <tbody>
 <tr><td>数据主目录</td>
-    <td class="n">G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA</td>
+    <td class="n">&lt;你的数据目录&gt;</td>
     <td>可以指向任意位置；参考表、别名表程序会自己找</td></tr>
 <tr><td>目录组织方式</td><td>同一目录、按文件里的样品名分类</td>
     <td>Qtegra 把所有测点倒进同一个目录</td></tr>
@@ -1280,8 +1516,8 @@ shiny::runApp(".")</code></pre>
 <table>
 <thead><tr><th>字段</th><th>填什么</th><th>怎么得到</th></tr></thead>
 <tbody>
-<tr><td>内标同位素</td><td class="n">182W</td><td>第 7 章的判据</td></tr>
-<tr><td>内标含量</td><td class="n">638500</td><td>CaWO₄ 化学计量（第 7.3 节）</td></tr>
+<tr><td>内标同位素</td><td class="n">182W</td><td>第 8 章的判据</td></tr>
+<tr><td>内标含量</td><td class="n">638500</td><td>CaWO₄ 化学计量（第 8.3 节）</td></tr>
 <tr><td>（自动对应的）内标列号</td><td class="n">55</td><td>界面选同位素名后自动填</td></tr>
 </tbody>
 </table>
@@ -1306,7 +1542,7 @@ shiny::runApp(".")</code></pre>
 
 <p>怎么确认取对了？看 182W 的曲线：空白段应该在 10³ cps 量级、
 信号段在 10⁸ 量级、中间有一个陡峭的跳变，<strong>跳变应该完全落在两个窗口之外</strong>。
-这就是第 4.2 节那张图。</p>
+这就是第 5.2 节那张图。</p>
 
 <p>本批的参数：</p>
 
@@ -1325,20 +1561,20 @@ shiny::runApp(".")</code></pre>
 <code>clip_negative</code>）是为了复现原始脚本的行为而存在的，
 除非你在和旧结果对拍，否则不用动。</p>
 
-<h3>9.2 用命令行（批量、可复现）</h3>
+<h3>14.2 用命令行（批量、可复现）</h3>
 
 <pre><code>Rscript tools/run_termite.R \
-  --dir  "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA" \
+  --dir  "&lt;你的数据目录&gt;" \
   --layout flat --auto \
   --ref  "SRM 610,SRM 612" \
   --qc   "BIR-1G,BCR-2G,BHVO-2G" \
   --is   182W --is-conc 638500 \
   --blank 25,60 --signal 70,118 \
-  --out  "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA_TERMITE结果"</code></pre>
+  --out  "&lt;你的数据目录&gt;_TERMITE结果"</code></pre>
 
 <p><code>--is</code> 接受同位素名，程序自己换算列号 —— 这正是为了避免上面说的数错列。</p>
 
-<h3>9.3 输出文件</h3>
+<h3>14.3 输出文件</h3>
 
 <table>
 <thead><tr><th>文件</th><th>内容</th><th>先看什么</th></tr></thead>
@@ -1352,7 +1588,7 @@ shiny::runApp(".")</code></pre>
 <tr><td class="n">Recovery_*.csv</td><td>每个参考物质/监控样、每个元素的回收率</td>
     <td>同一物质在不同文件间稳不稳</td></tr>
 <tr><td class="n">MainIsotope_*.csv</td><td>每个文件信号最强的几个同位素</td>
-    <td>确认基体分类（第 7 章）</td></tr>
+    <td>确认基体分类（第 8 章）</td></tr>
 <tr><td class="n">Plots_*.pdf</td><td>汇总图：信号、背景、RSF、LoD、结果</td>
     <td>快速扫一眼有没有异常</td></tr>
 <tr><td class="n">运行参数.txt</td><td>本次运行的全部参数与警告</td>
@@ -1366,12 +1602,12 @@ shiny::runApp(".")</code></pre>
 以及程序发出的全部警告。半年后你想复现这批结果，靠的是它，不是记忆。</p>
 </div>
 
-<h2 id="c10">10. 这个工具做不到什么</h2>
+<h2 id="c15">15. 这个工具做不到什么</h2>
 
 <p>写清楚边界，比多列几个功能更有用。下面每一条都是这个方法的固有限制，
 不是软件实现的问题 —— 换个软件也一样。</p>
 
-<h3>10.1 RSF 修不掉不稳定的偏差</h3>
+<h3>15.1 RSF 修不掉不稳定的偏差</h3>
 
 <p>RSF 是一个<em>乘性常数</em>。它能把系统性的灵敏度差异修掉，
 修不掉"同一次测量内部随时间变化的偏差"。
@@ -1379,32 +1615,39 @@ shiny::runApp(".")</code></pre>
 说明这个通道的响应在测量过程中一直在变。给这种数据套一个平均 RSF，
 得到的数字是真实的算术结果，但不是可用的分析结果。</p>
 
-<h3>10.2 LoD 是相对的</h3>
+<h3>15.2 LoD 是相对的</h3>
 
 <p>TERMITE 的 LoD 公式用的是<strong>样品自身的灵敏度</strong>作为分母。
 严谨的做法应该用参考物质定义灵敏度。当样品基体与参考物质差得远时
 （白钨矿 vs 硅酸盐玻璃），这个 LoD 会有系统性偏差。
 把它当作"这个样品在这个方法下的相对检出能力"，不要当作仪器指标去引用。</p>
 
-<h3>10.3 离群窗口的退化失效</h3>
+<h3>15.3 离群窗口的退化失效</h3>
 
-<p><code>中位数 × (1 ± 30%)</code> 在中位数为 0 时会把所有非零点剔光（第 8.2 节成因 C）。
+<p><code>中位数 × (1 ± 30%)</code> 在中位数为 0 时会把所有非零点剔光（第 9.2 节成因 C）。
 这不是偶发情况 —— 任何"多数行为接近 0、少数行有信号"的通道都会中招。
 本批数据里 In 就是例子。</p>
 
-<h3>10.4 一个批次只能有一个内标含量</h3>
+<h3>15.4 一个批次只能有一个内标含量</h3>
 
 <p>目前 <code>C_IS</code> 是全局参数。混合基体批次必须分批跑，
 或者改用 EPMA 的主量数据做逐点归一（需要自己改代码）。
 这是本工具当前最实际的局限。</p>
 
-<h3>10.5 参考值表不完备</h3>
+<h3>15.5 参考值表不完备</h3>
 
 <p>自带的 <code>Standards_GeoReM.csv</code> 只有 12 种物质。
 USGS 的 BIR-1G、BCR-2G、BHVO-2G 不在其中，所以本批数据的监控样回收率全为 NA。
 程序会给出警告，但不会、也不应该自己编造推荐值。</p>
 
-<h3>10.6 它不告诉你这个样品有没有地质意义</h3>
+<h3>15.6 它不修复质谱干扰</h3>
+
+<p>白钨矿场景里最实际的干扰是：<strong>高含量 W 的丰度灵敏度拖尾压在相邻质量数上</strong>，
+污染 Ta、Re 等通道；以及 ArCl⁺ 对 75As、Ar₂⁺ 对 77Se 的多原子干扰。
+本工具不内置干扰校正 —— 这些要么在选通道时避开，
+要么用支持干扰校正的软件（如 Iolite、LADR 或文献里的专用方案）处理。</p>
+
+<h3>15.7 它不告诉你这个样品有没有地质意义</h3>
 
 <p>这是最容易被忽略、也最重要的一条。</p>
 
@@ -1437,6 +1680,8 @@ USGS 的 BIR-1G、BCR-2G、BHVO-2G 不在其中，所以本批数据的监控样
 <tr><td class="n">LoD</td><td>Limit of Detection，检出限。本方法下可分辨的最低浓度</td></tr>
 <tr><td class="n">RSD</td><td>Relative Standard Deviation，相对标准偏差 = sd / mean</td></tr>
 <tr><td class="n">REE</td><td>Rare Earth Elements，稀土元素。La 到 Lu 加 Y</td></tr>
+<tr><td class="n">点分析</td><td>spot analysis。激光固定打一个孔，输出每个样品一行的浓度表</td></tr>
+<tr><td class="n">线扫描</td><td>line scan。激光沿直线匀速剥蚀，输出浓度随距离的连续剖面</td></tr>
 <tr><td class="n">Qtegra</td><td>Thermo Fisher 的仪器控制与导出软件（iCAP 系列）</td></tr>
 </tbody>
 </table>
@@ -1457,18 +1702,20 @@ USGS 的 BIR-1G、BCR-2G、BHVO-2G 不在其中，所以本批数据的监控样
 
 <h2 id="a2">附录 B · 每个数字的出处</h2>
 
-<p>本文引用的每一个数字，都来自下面两处之一，没有估算值。</p>
+<p>本文引用的每一个数字，都来自下面两处之一，没有估算值。
+（数据目录与样品号已按本文开头的约定脱敏，代号不影响复现 ——
+把代号换成你自己的目录与文件即可。）</p>
 
 <table>
 <thead><tr><th>类别</th><th>来源</th><th>怎么自己复现</th></tr></thead>
 <tbody>
 <tr><td>原始信号、空白、净计数</td>
-    <td class="n">20230806CKDA/20230806CKDA_10.csv</td>
+    <td class="n">&lt;你的数据目录&gt;/sample_10.csv</td>
     <td>直接打开文件，第 16–130 行；表头在第 14 行</td></tr>
 <tr><td>积分窗口、离群比例、RSF、LoD、浓度</td>
     <td class="n">R/termite_core.R</td>
     <td>按下文参数跑 <code>termite_run()</code>，或看
-        <code>20230806CKDA_TERMITE结果/</code> 里的输出文件</td></tr>
+        <code>&lt;你的数据目录&gt;_TERMITE结果/</code> 里的输出文件</td></tr>
 <tr><td>文件分类、主量同位素判据</td>
     <td class="n">R/termite_import.R</td>
     <td>用 <code>termite_plan()</code> 与 <code>termite_suggest_is()</code></td></tr>
@@ -1482,15 +1729,18 @@ USGS 的 BIR-1G、BCR-2G、BHVO-2G 不在其中，所以本批数据的监控样
     <td>IUPAC 原子量</td>
     <td>Ca 40.078、W 183.84、O 15.999 → CaWO₄：W 638 524、Ca 139 201 µg/g</td></tr>
 <tr><td>回收率</td>
-    <td class="n">Recovery_20230806CKDA.csv</td>
+    <td class="n">Recovery_&lt;批次&gt;.csv</td>
     <td>行 = 参考物质文件，列 = 同位素</td></tr>
+<tr><td>线扫剖面与比值（第 10 章）</td>
+    <td class="n">your_main_directory/Results/Results_*_linescan.csv</td>
+    <td>原仓库自带示例；比值 = 任意两列相除</td></tr>
 </tbody>
 </table>
 
 <p>复现本文全部结果所用的参数：</p>
 
 <pre><code>termite_defaults("spot") 上覆盖：
-  dir             = "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA"
+  dir             = "&lt;你的数据目录&gt;"
   layout          = "flat"      auto_detect = TRUE
   ref_names       = c("SRM 610", "SRM 612")
   qc_names        = c("BIR-1G", "BCR-2G", "BHVO-2G")
@@ -1523,8 +1773,10 @@ USGS 的 BIR-1G、BCR-2G、BHVO-2G 不在其中，所以本批数据的监控样
 <code>docs/IMPORT.md</code>（数据导入）、<code>docs/FIXES.md</code>（原脚本问题清单）
 互为补充。本文负责"为什么要这么做"和"结果怎么读"，
 那三份负责"具体怎么算""怎么读文件""改了什么"。</p>
-<p>本文中所有插图均为内联 SVG，由 <code>_mkfigs.py</code> 从原始数据文件与输出文件
-直接计算坐标生成，没有手绘数据点。文档本身不依赖任何外部资源，可离线打开。</p>
+<p>文中全部插图（14 幅）均为内联 SVG，由脚本从原始数据文件与输出文件
+直接计算坐标生成，没有手绘数据点；样品号与数据目录已做脱敏处理，
+数值未做任何改动。本文档由 AI 起草、经逐位数值核对（见第 13 章），
+不依赖任何外部资源，可离线打开。</p>
 </div>
 
 
