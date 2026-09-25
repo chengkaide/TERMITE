@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TERMITE · 交互式 LA-ICP-MS 微量元素数据归算</title>
+<style>
+  :root{
+    --ink:#26251F; --ink2:#5F5E5A; --ink3:#8A8880;
+    --line:#D8D6CC; --bg:#FFFFFF; --panel:#F8F7F4; --panel2:#EFEEE8;
+    --pur:#4C43AE; --purbg:#EEEDFE; --purline:#AFA9EC;
+    --tea:#0E6650; --teabg:#E3F5EF; --tealine:#9FE1CB;
+    --amb:#7D4A0A; --ambbg:#FAEEDA; --ambline:#FAC775;
+    --red:#9B2B2B; --redbg:#FCF5F5;
+    --blue:#14547F; --bluebg:#EAF3FA;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       font-size:15.5px;line-height:1.8;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 30px 90px}
+  a{color:var(--pur);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;margin:44px 0 30px;padding:52px 52px 44px;border:1px solid var(--line);
+        border-radius:22px;overflow:hidden;
+        background:
+          radial-gradient(1100px 500px at -12% -40%, #EEEDFE 0%, rgba(238,237,254,0) 58%),
+          radial-gradient(900px 400px at 112% -8%, #E3F5EF 0%, rgba(227,245,239,0) 58%),
+          linear-gradient(180deg,#FBFAF7,#FFFFFF)}
+  .hero::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;
+        background:linear-gradient(90deg,var(--pur),#8B7FE8 40%,var(--tea) 72%,var(--amb))}
+  .hero .kicker{font-size:12.5px;letter-spacing:.14em;color:var(--pur);font-weight:700;margin:0 0 14px}
+  .hero h1{font-size:40px;font-weight:700;margin:0 0 16px;line-height:1.2;letter-spacing:-.6px}
+  .hero .sub{color:var(--ink2);font-size:17px;margin:0 0 24px;line-height:1.8;max-width:640px}
+  .chips{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 28px}
+  .chips span{font-size:12.5px;color:var(--ink2);background:#FFFFFF;
+        border:1px solid var(--line);padding:4px 14px;border-radius:999px}
+  .cta{display:flex;gap:12px;flex-wrap:wrap}
+  .btn{display:inline-block;padding:10px 22px;border-radius:9px;font-weight:600;
+       font-size:14.5px;border:1px solid var(--line);color:var(--ink);background:#fff}
+  .btn:hover{text-decoration:none;border-color:var(--purline)}
+  .btn.primary{background:var(--pur);border-color:var(--pur);color:#fff}
+  .btn.primary:hover{background:#3D3696}
+  .btn.ghost{background:var(--purbg);border-color:var(--purline);color:var(--pur)}
+
+  /* ---------- section ---------- */
+  section{margin:0 0 58px}
+  h2{font-size:24px;font-weight:700;margin:0 0 20px;padding-top:22px;
+     border-top:2px solid var(--line);letter-spacing:-.2px;position:relative}
+  h2::before{content:"";position:absolute;top:-2px;left:0;width:64px;height:2px;background:var(--pur)}
+  h3{font-size:16.5px;font-weight:600;margin:0 0 8px}
+  p{margin:0 0 14px;color:var(--ink2)}
+  .lead{background:var(--panel);border-left:3px solid var(--pur);
+        border-radius:0 12px 12px 0;padding:18px 24px;margin:0 0 10px}
+  .lead p{color:var(--ink)}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+  .card{background:linear-gradient(180deg,#FFFFFF,#F7F6F2);border:1px solid var(--line);
+        border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(38,37,31,.03)}
+  .card h3{margin-top:0}
+  .card .ico{font-size:22px;margin-bottom:8px}
+  .card p{font-size:14px;margin:0;color:var(--ink2)}
+  .card .tag{display:inline-block;font-size:11.5px;color:var(--tea);background:var(--teabg);
+        border:1px solid var(--tealine);border-radius:999px;padding:1px 10px;margin-top:10px}
+
+  /* ---------- compare ---------- */
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.cmp{grid-template-columns:1fr}}
+  .cmp .card h3{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}
+  .cmp ul{margin:0;padding-left:20px;font-size:14px;color:var(--ink2)}
+  .cmp li{margin:0 0 7px}
+  .cmp .hdr-a{color:var(--pur)}
+  .cmp .hdr-b{color:var(--tea)}
+
+  /* ---------- code ---------- */
+  pre{background:#2A2A33;color:#EAEAF2;border-radius:12px;padding:18px 22px;
+      overflow-x:auto;margin:0 0 10px;line-height:1.75}
+  pre code{font-family:Consolas,Menlo,monospace;font-size:13.5px}
+  pre .c{color:#8B8B98}  /* comment */
+  pre .s{color:#A5D6A7}  /* string */
+  pre .f{color:#82AAFF}  /* function */
+  code.inline{font-family:Consolas,Menlo,monospace;font-size:13px;
+       background:var(--panel);padding:1.5px 5px;border-radius:4px;color:#2A2470}
+
+  /* ---------- svg frame ---------- */
+  figure{margin:0}
+  figure svg{display:block;width:100%;height:auto;border-radius:14px;
+             border:1px solid var(--line);box-shadow:0 2px 8px rgba(38,37,31,.06);background:#fff}
+  figcaption{color:var(--ink3);font-size:13px;margin-top:10px;line-height:1.7}
+
+  /* ---------- doc nav ---------- */
+  .docs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .doc{display:block;background:#fff;border:1px solid var(--line);border-radius:13px;
+       padding:18px 20px;color:var(--ink)}
+  .doc:hover{text-decoration:none;border-color:var(--purline);box-shadow:0 2px 8px rgba(76,67,174,.08)}
+  .doc b{display:block;font-size:15px;margin-bottom:4px}
+  .doc span{font-size:13px;color:var(--ink2)}
+  .doc .ext{display:inline-block;font-size:11px;color:var(--pur);background:var(--purbg);
+        border-radius:5px;padding:0 7px;margin-left:6px}
+
+  .note{border-left:3px solid var(--ambline);background:#FFFCF5;
+        border-radius:0 10px 10px 0;padding:14px 18px;margin:0 0 22px;font-size:14px}
+  .note p{color:var(--ink);margin:0}
+
+  footer{margin-top:20px;padding-top:22px;border-top:1px solid var(--line);
+         color:var(--ink3);font-size:13.5px;line-height:1.8}
+  footer a{color:var(--ink2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===================== HERO ===================== -->
+  <header class="hero">
+    <p class="kicker">LA-ICP-MS · TRACE ELEMENT REDUCTION</p>
+    <h1>TERMITE</h1>
+    <p class="sub">交互式 <b>LA-ICP-MS 微量元素数据归算</b>工具——把原始 R 脚本重写为
+       <b>纯 base R 内核 + Shiny 界面</b>，解析、修错、讲清原理，并保证结果与原脚本<b>逐位一致</b>。</p>
+    <div class="chips">
+      <span>零外部依赖（只需 shiny）</span>
+      <span>点分析 / 线扫描</span>
+      <span>无内标矿物化学式归一化</span>
+      <span>与原脚本逐位一致</span>
+      <span>示例数据已脱敏</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="#quickstart">快速开始</a>
+      <a class="btn ghost" href="HANDBOOK.html">阅读入门手册</a>
+      <a class="btn" href="https://github.com/chengkaide/TERMITE">GitHub 源码 ↗</a>
+    </div>
+  </header>
+
+  <!-- ===================== 定位 ===================== -->
+  <div class="lead">
+    <p>原始 TERMITE（Simon A. Mischel 等，University of Mainz）是一套可用的定量脚本，
+     但线扫描分支存在若干致命错误，算法细节散落在 1150 行命令式代码里。
+     本项目保留全部算法定义，重写为<b>可复用、可验证、可交互</b>的形式——首次打开即用示例数据自动跑一遍。</p>
+  </div>
+
+  <!-- ===================== 核心能力 ===================== -->
+  <section>
+    <h2>核心能力</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="ico">📥</div>
+        <h3>数据导入</h3>
+        <p>按内容识别 Qtegra（iCAP）、Agilent、Element2 等格式，自动找表头行、数据行、分隔符、同位素个数，不依赖固定行号；样品名从文件里读。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🎯</div>
+        <h3>点分析归算</h3>
+        <p>净信号 → 内标归一 → 同位素换算 → RSF 定标 → 检出限截断，七步链给出 µg/g 浓度，附带离群检验与回收率校核。</p>
+      </div>
+      <div class="card">
+        <div class="ico">📈</div>
+        <h3>线扫描剖面</h3>
+        <p>逐点归算成浓度-距离剖面，可输出任意元素对的<b>比值剖面</b>（如 Zr/Hf、Nb/Ta），比单独看浓度更抗基体漂移。</p>
+      </div>
+      <div class="card">
+        <div class="ico">🧪</div>
+        <h3>无内标公式法</h3>
+        <p>用矿物结构式（电荷平衡 / 固定配位阳离子）替代内标元素，<b>省去 EPMA</b>。支持白钨矿、锡石、锆石、磷灰石、云母、绿柱石、电气石。</p>
+        <span class="tag">新增</span>
+      </div>
+      <div class="card">
+        <div class="ico">📉</div>
+        <h3>检出限与离群</h3>
+        <p>LoD 图/表、中位数 ±m% 离群剔除、负值截断等质量控制一应俱全，每步假设与陷阱都写进了文档。</p>
+      </div>
+      <div class="card">
+        <div class="ico">✅</div>
+        <h3>逐位一致性自检</h3>
+        <p>一键重跑与原脚本的比对：点分析 40×12、线扫描 6748×12 单元格最大相对偏差均为 <b>0</b>，NA 模式完全一致。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 两种定标策略 ===================== -->
+  <section>
+    <h2>两种定标策略</h2>
+    <div class="cmp">
+      <div class="card">
+        <h3 class="hdr-a">① 内标法（经典）</h3>
+        <ul>
+          <li>需要一个<b>已知含量</b>的内标元素（如白钨矿用 W、锡石用 Sn）</li>
+          <li>内标含量通常由 EPMA 事先测得</li>
+          <li>RSF 由参考物质回归，把剥蚀/传输/电离效率打包成一个经验因子</li>
+          <li>适用面广，但<b>不可跨基体转移</b></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 class="hdr-b">② 公式法（无内标，AYCF 家族）</h3>
+        <ul>
+          <li>用<b>矿物结构式电荷平衡</b>归一，替代内标元素</li>
+          <li>测不准的元素（磷灰石的 P/F、云母的 K/OH、绿柱石的 Be、电气石的 B/Si）按结构式理论补</li>
+          <li><b>省去 EPMA</b>，两种方法数学等价</li>
+          <li>依赖矿物化学计量与价态假设，需按矿物选对模式</li>
+        </ul>
+      </div>
+    </div>
+    <p style="margin-top:14px">两种策略在同一个界面里切换：顶部导航「内标法归算」与「无内标公式法」两个独立页面。
+     详见 <a href="FORMULA_CAL.md">docs/FORMULA_CAL.md</a>。</p>
+  </section>
+
+  <!-- ===================== 快速开始 ===================== -->
+  <section id="quickstart">
+    <h2>快速开始</h2>
+<pre><code><span class="c"># 1. 唯一需要的包</span>
+install.packages(<span class="s">"shiny"</span>)
+
+<span class="c"># 2. 在仓库根目录启动（首次自动用示例数据跑一遍点分析）</span>
+shiny::<span class="f">runApp</span>(<span class="s">"."</span>)</code></pre>
+    <p>不启动界面也能批处理（<code class="inline">tools/run_termite.R</code>）：</p>
+<pre><code>Rscript tools/run_termite.R --dir <span class="s">"&lt;数据目录&gt;"</span> --layout flat --auto \
+  --ref <span class="s">"SRM 610,SRM 612"</span> --qc <span class="s">"BIR-1G,BCR-2G"</span> \
+  --is 182W --is-conc 638500 --blank 25,60 --signal 70,118</code></pre>
+  </section>
+
+  <!-- ===================== 界面结构 ===================== -->
+  <section>
+    <h2>界面结构：两个独立页面</h2>
+    <figure>
+<svg viewBox="0 0 980 640" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4C43AE"/><stop offset=".45" stop-color="#8B7FE8"/>
+      <stop offset=".8" stop-color="#0E6650"/><stop offset="1" stop-color="#7D4A0A"/>
+    </linearGradient>
+  </defs>
+  <!-- navbar -->
+  <rect x="20" y="20" width="940" height="44" rx="9" fill="#26251F"/>
+  <circle cx="52" cy="42" r="6" fill="#fff" opacity=".9"/>
+  <text x="66" y="47" fill="#fff" font-size="14" font-weight="700">TERMITE</text>
+  <rect x="180" y="28" width="150" height="28" rx="7" fill="#4C43AE"/>
+  <text x="255" y="47" fill="#fff" font-size="13" text-anchor="middle" font-weight="600">内标法归算</text>
+  <rect x="338" y="28" width="150" height="28" rx="7" fill="#3a3a42"/>
+  <text x="413" y="47" fill="#cfcfd8" font-size="13" text-anchor="middle">无内标公式法</text>
+
+  <!-- page 1 -->
+  <text x="24" y="98" font-size="12" fill="#8A8880">第 1 页 · 内标法归算</text>
+  <rect x="20" y="108" width="280" height="330" rx="11" fill="#F8F7F4" stroke="#D8D6CC"/>
+  <text x="160" y="132" text-anchor="middle" font-size="12.5" fill="#5F5E5A" font-weight="600">侧栏 · 数据与参数</text>
+  <g font-size="11.5" fill="#5F5E5A">
+    <rect x="36" y="146" width="248" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/>
+    <text x="46" y="163">① 导入数据</text>
+    <rect x="36" y="176" width="248" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/>
+    <text x="46" y="193">② 数据与仪器</text>
+    <rect x="36" y="206" width="248" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/>
+    <text x="46" y="223">③ 行列与内标</text>
+    <rect x="36" y="236" width="248" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/>
+    <text x="46" y="253">④ 积分窗口</text>
+    <rect x="36" y="266" width="248" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/>
+    <text x="46" y="283">⑤ 离群检验 · ⑥ 兼容修正 · ⑦ 高级</text>
+  </g>
+  <rect x="160" y="312" width="120" height="30" rx="7" fill="#4C43AE"/>
+  <text x="220" y="332" text-anchor="middle" font-size="12.5" fill="#fff" font-weight="600">▶ 运行归算</text>
+  <rect x="36" y="354" width="248" height="62" rx="8" fill="#EAF3FA" stroke="#c7dcee"/>
+  <text x="46" y="375" font-size="11.5" fill="#14547F">状态条：完成 · 样品 40 个</text>
+  <text x="46" y="394" font-size="11.5" fill="#14547F">参考 6 个 · 12 个同位素</text>
+
+  <rect x="316" y="108" width="644" height="330" rx="11" fill="#fff" stroke="#D8D6CC"/>
+  <text x="338" y="132" font-size="12.5" fill="#5F5E5A" font-weight="600">主面板 · 结果标签页</text>
+  <g font-size="11" fill="#5F5E5A">
+    <rect x="336" y="142" width="64" height="22" rx="6" fill="#EEEDFE" stroke="#AFA9EC"/>
+    <text x="368" y="158" text-anchor="middle" fill="#4C43AE">导入数据</text>
+    <rect x="408" y="142" width="50" height="22" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="433" y="158" text-anchor="middle">总览</text>
+    <rect x="466" y="142" width="60" height="22" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="496" y="158" text-anchor="middle">原始信号</text>
+    <rect x="534" y="142" width="62" height="22" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="565" y="158" text-anchor="middle">校准 RSF</text>
+    <rect x="604" y="142" width="54" height="22" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="631" y="158" text-anchor="middle">LoD</text>
+    <rect x="666" y="142" width="50" height="22" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="691" y="158" text-anchor="middle">结果</text>
+  </g>
+  <rect x="336" y="182" width="604" height="238" rx="9" fill="#FCFCFA" stroke="#E2E0D8"/>
+  <text x="356" y="206" font-size="12" fill="#8A8880">浓度表（µg/g） · 散点图 / 剖面图 · RSF / LoD 表</text>
+  <g font-size="11.5" fill="#5F5E5A">
+    <rect x="356" y="222" width="120" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="366" y="239">Mg  12.4 ± 0.3</text>
+    <rect x="356" y="252" width="120" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="366" y="269">Sr  8.71 ± 0.2</text>
+    <rect x="356" y="282" width="120" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="366" y="299">W   621700</text>
+    <rect x="356" y="312" width="120" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="366" y="329">La  0.84 ± 0.1</text>
+  </g>
+  <circle cx="700" cy="280" r="70" fill="#EAF3FA"/>
+  <circle cx="700" cy="280" r="46" fill="#EEEDFE"/>
+  <circle cx="700" cy="280" r="24" fill="#4C43AE" opacity=".8"/>
+  <text x="700" y="380" text-anchor="middle" font-size="11.5" fill="#8A8880">散点 / 剖面示意</text>
+
+  <!-- page 2 -->
+  <text x="24" y="476" font-size="12" fill="#8A8880">第 2 页 · 无内标公式法</text>
+  <rect x="20" y="486" width="280" height="134" rx="11" fill="#F8F7F4" stroke="#D8D6CC"/>
+  <text x="160" y="510" text-anchor="middle" font-size="12.5" fill="#5F5E5A" font-weight="600">侧栏 · 选矿物即可</text>
+  <rect x="36" y="522" width="248" height="28" rx="7" fill="#fff" stroke="#D8D6CC"/>
+  <text x="46" y="541" font-size="11.5" fill="#5F5E5A">矿物：白钨矿 ▾</text>
+  <rect x="160" y="558" width="120" height="28" rx="7" fill="#0E6650"/>
+  <text x="220" y="577" text-anchor="middle" font-size="12" fill="#fff" font-weight="600">▶ 运行公式法</text>
+  <rect x="36" y="592" width="248" height="20" rx="5" fill="#E3F5EF" stroke="#9FE1CB"/>
+  <text x="46" y="606" font-size="10.5" fill="#0E6650">完成 · 40 样品 × 12 元素</text>
+
+  <rect x="316" y="486" width="644" height="134" rx="11" fill="#fff" stroke="#D8D6CC"/>
+  <text x="338" y="510" font-size="12.5" fill="#5F5E5A" font-weight="600">主面板 · 公式法结果</text>
+  <g font-size="11" fill="#5F5E5A">
+    <rect x="336" y="522" width="170" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="346" y="539">归一化因子 = 1.0000</text>
+    <rect x="336" y="552" width="170" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="346" y="569">W   621700 µg/g</text>
+    <rect x="336" y="582" width="170" height="24" rx="6" fill="#fff" stroke="#D8D6CC"/><text x="346" y="599">Ca  139400 µg/g</text>
+  </g>
+  <text x="560" y="545" font-size="11.5" fill="#8A8880">无内标：矿物结构式电荷平衡归一</text>
+  <text x="560" y="568" font-size="11.5" fill="#8A8880">省去 EPMA 测内标含量</text>
+</svg>
+    </figure>
+    <figcaption>顶部导航两个页面：第 1 页「内标法归算」承载数据与参数 + 经典结果；第 2 页「无内标公式法」只需选矿物即可跑，数据目录与积分窗口沿用第 1 页的设置。</figcaption>
+  </section>
+
+  <!-- ===================== 数值一致性 ===================== -->
+  <section>
+    <h2>数值一致性：最重要的一步</h2>
+    <div class="lead">
+      <p><code class="inline">tests/test-parity.R</code> 把内核在复刻模式下重跑，与原始脚本生成的基准输出逐列比对：
+       点分析 40×12、线扫描 6748×12 单元格最大相对偏差全部 <b>0.000e+00</b>，NA 模式完全一致。</p>
+    </div>
+    <p>另有 <code class="inline">tests/test-app.R</code> 用 <code class="inline">shiny::testServer()</code>
+     把服务端整条反应链跑一遍（点/线/公式法多组参数，无需浏览器）。
+     所有数值改动都做成开关，默认走修正模式，可切回复刻原脚本行为。</p>
+  </section>
+
+  <!-- ===================== 文档导航 ===================== -->
+  <section>
+    <h2>文档</h2>
+    <div class="docs">
+      <a class="doc" href="HANDBOOK.html"><b>入门手册<span class="ext">HTML</span></b>
+        <span>14 张图讲透归算原理、能测元素、点/线扫描区别、软件对比、AI 分工。</span></a>
+      <a class="doc" href="PRINCIPLES.md"><b>算法原理<span class="ext">MD</span></b>
+        <span>从 cps 到 µg/g 的完整推导，每一步的假设与陷阱。</span></a>
+      <a class="doc" href="FORMULA_CAL.md"><b>无内标公式法<span class="ext">MD</span></b>
+        <span>矿物化学式归一化（AYCF 家族）的原理、矿物参数、适用与局限。</span></a>
+      <a class="doc" href="IMPORT.md"><b>数据导入<span class="ext">MD</span></b>
+        <span>支持的仪器格式、别名表、内标选择与样品分类。</span></a>
+      <a class="doc" href="FIXES.md"><b>原脚本问题清单<span class="ext">MD</span></b>
+        <span>12 条带复现证据的修改说明与修正/复刻开关。</span></a>
+      <a class="doc" href="https://github.com/chengkaide/TERMITE"><b>源码与测试<span class="ext">GitHub</span></b>
+        <span>R/ 内核、Shiny 界面、tests/ 自检、tools/ 命令行入口。</span></a>
+    </div>
+    <div class="note" style="margin-top:20px">
+      <p>💡 此页由 GitHub Pages 从 <code class="inline">master</code> 分支的 <code class="inline">/docs</code> 目录发布。
+      启用方法：仓库 Settings → Pages → Source 选 <b>Deploy from a branch</b> → 分支 <b>master</b>、目录 <b>/docs</b>。
+      发布后访问 <code class="inline">https://chengkaide.github.io/TERMITE/</code>。</p>
+    </div>
+  </section>
+
+  <!-- ===================== footer ===================== -->
+  <footer>
+    <p>原始 TERMITE 由 Simon A. Mischel、Regina Mertz-Kraus、Klaus Peter Jochum、Denis Scholz 开发
+      （Speleothem Research Group, University of Mainz）。参考物质推荐值来自
+      <a href="http://georem.mpch-mainz.gwdg.de/">GeoReM</a>，同位素参数来自 NIST。</p>
+    <p>本仓库是原脚本的重写与扩展，沿用上游条款。如使用请引用：Mischel, S. A., Mertz-Kraus, R.,
+      Jochum, K. P., &amp; Scholz, D. <i>TERMITE: An R script for fast reduction of LA-ICPMS data.</i></p>
+  </footer>
+
+</div>
+</body>
+</html>

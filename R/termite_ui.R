@@ -53,18 +53,17 @@ numin <- function(id, label, value, step = 1, min = NA, max = NA) {
 }
 
 termite_ui <- function() {
-  fluidPage(
-    tags$head(tags$style(HTML(.termite_css))),
-    titlePanel(
-      div(style = "display:flex;align-items:baseline;gap:14px",
-          tags$span("TERMITE · 交互式数据归算"),
-          tags$span(style = "font-size:12.5px;color:#718096;font-weight:400",
-                    "LA-ICP-MS 微量元素 · 点分析 / 线扫描 · 纯 base R 内核"))
-    ),
+  navbarPage(
+    title = "TERMITE · 交互式数据归算",
+    id = "nav",
+    header = tags$head(tags$style(HTML(.termite_css))),
 
-    sidebarLayout(
-      sidebarPanel(
-        width = 3, class = "sidebar",
+    tabPanel("内标法归算",
+      div(style = "font-size:12.5px;color:#718096;margin:2px 0 6px",
+          "LA-ICP-MS 微量元素 · 点分析 / 线扫描 · 纯 base R 内核"),
+      sidebarLayout(
+        sidebarPanel(
+          width = 3, class = "sidebar",
 
         actionButton("run", "▶  运行归一算", class = "btn-run btn-primary"),
         div(style = "height:8px"),
@@ -152,20 +151,6 @@ termite_ui <- function() {
           numericInput("n_sweeps_ref", "参考文件总行数（留空=全部）", NA),
           div(style = "font-size:11.5px;color:#718096",
               "仅当文件尾部有非数据内容时才需要填写。")
-        ),
-
-        acc("⑧ 无内标「矿物化学式归一化」校准",
-          div(style = "font-size:11.5px;color:#718096;margin:0 0 6px",
-              "用矿物结构式（电荷平衡 / 固定配位阳离子）替代内标元素，",
-              "省去 EPMA 测内标含量。复用左侧已填的数据目录与积分窗口。"),
-          selectizeInput("formula_mineral", "矿物",
-                         choices = NULL,
-                         options = list(placeholder = "先扫描目录，或直接选矿物")),
-          div(style = "font-size:11.5px;color:#718096;margin:-4px 0 6px",
-              "无水矿物（白钨矿/锡石/锆石）· 氟磷灰石 · 云母 · 绿柱石 · 电气石。"),
-          actionButton("run_formula", "▶  运行公式法校准", class = "btn-run btn-success"),
-          div(style = "height:6px"),
-          uiOutput("formula_status_bar")
         )
       ),
 
@@ -247,24 +232,51 @@ termite_ui <- function() {
                    br(), br(),
                    verbatimTextOutput("verify_out"),
                    h4("测试方式"),
-                   uiOutput("verify_doc")),
+                   uiOutput("verify_doc"))
+        )
+      )
+      )
+    ),
 
-          tabPanel("公式法校准", br(),
-                   div(class = "ok-box",
-                       "无内标「矿物化学式归一化」校准（AYCF 家族）：用矿物结构式替代内标，",
-                       "省去 EPMA。左侧选矿物后点「运行公式法校准」。",
-                       "测不准的元素（磷灰石的 P/F、云母的 K/OH、绿柱石的 Be、电气石的 B/Si）",
-                       "按结构式理论补，结果表里用 * 标出。"),
-                   uiOutput("formula_summary"),
-                   h4("归一化因子（化学式因子）"),
-                   p(style = "font-size:12.5px;color:#718096",
-                     "把未归一化的摩尔数缩放到满足矿物结构式电荷平衡的因子；",
-                     "越接近化学计量，该因子越稳定。"),
-                   tableOutput("formula_factor_tbl"),
-                   h4("结果表（元素浓度 µg/g）"),
-                   uiOutput("formula_tbl_note"),
-                   tableOutput("formula_tbl"),
-                   downloadButton("dl_formula", "下载公式法结果 CSV"))
+    tabPanel("无内标公式法",
+      div(style = "font-size:12.5px;color:#718096;margin:2px 0 6px",
+          "无内标「矿物化学式归一化」校准（AYCF 家族）——省去 EPMA 测内标含量"),
+      sidebarLayout(
+        sidebarPanel(
+          width = 3, class = "sidebar",
+          div(class = "ok-box",
+              "数据目录、参考物质名单、积分窗口沿用「内标法归算」页的设置；",
+              "如需修改，请先回上一页调整。"),
+          acc("矿物", open = TRUE,
+            div(style = "font-size:11.5px;color:#718096;margin:0 0 6px",
+                "用矿物结构式（电荷平衡 / 固定配位阳离子）替代内标元素。"),
+            selectizeInput("formula_mineral", "选择矿物",
+                           choices = NULL,
+                           options = list(placeholder = "请选择矿物")),
+            div(style = "font-size:11.5px;color:#718096;margin:-4px 0 6px",
+                "无水矿物（白钨矿/锡石/锆石）· 氟磷灰石 · 云母 · 绿柱石 · 电气石。"),
+            actionButton("run_formula", "▶  运行公式法校准", class = "btn-run btn-success"),
+            div(style = "height:6px"),
+            uiOutput("formula_status_bar")
+          )
+        ),
+        mainPanel(
+          width = 9,
+          div(class = "ok-box",
+              "无内标「矿物化学式归一化」校准（AYCF 家族）：用矿物结构式替代内标，",
+              "省去 EPMA。左侧选矿物后点「运行公式法校准」。",
+              "测不准的元素（磷灰石的 P/F、云母的 K/OH、绿柱石的 Be、电气石的 B/Si）",
+              "按结构式理论补，结果表里用 * 标出。"),
+          uiOutput("formula_summary"),
+          h4("归一化因子（化学式因子）"),
+          p(style = "font-size:12.5px;color:#718096",
+            "把未归一化的摩尔数缩放到满足矿物结构式电荷平衡的因子；",
+            "越接近化学计量，该因子越稳定。"),
+          tableOutput("formula_factor_tbl"),
+          h4("结果表（元素浓度 µg/g）"),
+          uiOutput("formula_tbl_note"),
+          tableOutput("formula_tbl"),
+          downloadButton("dl_formula", "下载公式法结果 CSV")
         )
       )
     )
