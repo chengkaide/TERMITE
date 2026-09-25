@@ -31,6 +31,28 @@
 .M_P  <- 30.973761998
 .M_K  <- 39.0983
 
+#' 元素标准原子量（IUPAC），与 .termite_valence_default 的元素集一一对应。
+#'
+#' 用途：`fixed` 模式里被固定扣除的阳离子（如绿柱石的 Be、电气石的 B/Si）
+#' 通常不在样品通道里，传入的 M/valence 查不到它们；用这张表取原子量与价态。
+.termite_M_default <- c(
+  "Li" = 6.94,       "Be" = 9.0121831,  "B" = 10.81,       "Na" = 22.98976928,
+  "Mg" = 24.305,     "Al" = 26.9815385, "Si" = 28.0855,    "P" = 30.973761998,
+  "K" = 39.0983,     "Ca" = 40.078,     "Sc" = 44.955908,  "Ti" = 47.867,
+  "V" = 50.9415,     "Cr" = 51.9961,    "Mn" = 54.938044,  "Fe" = 55.845,
+  "Co" = 58.933194,  "Ni" = 58.6934,    "Cu" = 63.546,     "Zn" = 65.38,
+  "Ga" = 69.723,     "Ge" = 72.630,     "As" = 74.921595,  "Se" = 78.971,
+  "Rb" = 85.4678,    "Sr" = 87.62,      "Y" = 88.90584,    "Zr" = 91.224,
+  "Nb" = 92.90637,   "Mo" = 95.95,      "In" = 114.818,    "Sn" = 118.710,
+  "Sb" = 121.760,    "Cs" = 132.90545196, "Ba" = 137.327,
+  "La" = 138.90547,  "Ce" = 140.116,    "Pr" = 140.90766,  "Nd" = 144.242,
+  "Sm" = 150.36,     "Eu" = 151.964,    "Gd" = 157.25,     "Tb" = 158.92535,
+  "Dy" = 162.500,    "Ho" = 164.93033,  "Er" = 167.259,    "Tm" = 168.93422,
+  "Yb" = 173.045,    "Lu" = 174.9668,   "Hf" = 178.49,     "Ta" = 180.94788,
+  "W" = 183.84,      "Re" = 186.207,    "Pb" = 207.2,      "Th" = 232.0377,
+  "U" = 238.02891
+)
+
 #' 默认价态表：元素 → 价态（决定氧化物形式）
 #'
 #' 这些是地学常用氧化物价态（Fe→FeO、Mn→MnO 用二价；W→WO3、Mo→MoO3 用六价）。
@@ -54,14 +76,20 @@
 #' excluded 是 ICP-MS 测不准、需要按结构式理论补的元素。
 .termite_mineral_builtin <- function() {
   data.frame(
-    name      = c("scheelite",   "cassiterite", "zircon", "fluorapatite", "muscovite", "biotite"),
-    formula   = c("CaWO4",       "SnO2",        "ZrSiO4", "Ca5(PO4)3F",  "KAl2(AlSi3)O10(OH,F)2", "K(Mg,Fe)3(AlSi3)O10(OH,F)2"),
-    mode      = c("anhydrous",   "anhydrous",   "anhydrous", "apatite", "mica", "mica"),
-    n_O       = c(4,             2,             4,         12,           10,      10),
-    n_F       = c(0,             0,             0,         1,            0,       0),
-    n_OH      = c(0,             0,             0,         0,            2,       2),
-    excluded  = c("",            "",            "",        "P",          "K",     "K"),
-    note      = c("白钨矿",      "锡石",        "锆石",    "氟磷灰石",   "白云母", "黑云母"),
+    name     = c("scheelite", "cassiterite", "zircon", "fluorapatite",
+                 "muscovite", "biotite", "beryl", "tourmaline"),
+    formula  = c("CaWO4", "SnO2", "ZrSiO4", "Ca5(PO4)3F",
+                 "KAl2(AlSi3)O10(OH,F)2", "K(Mg,Fe)3(AlSi3)O10(OH,F)2",
+                 "Be3Al2Si6O18", "Na(Mg,Fe)3Al6Si6O18(BO3)3(OH)4"),
+    mode     = c("anhydrous", "anhydrous", "anhydrous", "apatite",
+                 "mica", "mica", "fixed", "fixed"),
+    n_O      = c(4, 2, 4, 12, 10, 10, 18, 31),
+    n_F      = c(0, 0, 0, 1, 0, 0, 0, 0),
+    n_OH     = c(0, 0, 0, 0, 2, 2, 0, 4),
+    fixed    = c("", "", "", "", "", "", "Be:3", "B:3;Si:6"),
+    excluded = c("", "", "", "P", "K", "K", "", ""),
+    note     = c("白钨矿", "锡石", "锆石", "氟磷灰石",
+                 "白云母", "黑云母", "绿柱石", "电气石"),
     stringsAsFactors = FALSE
   )
 }
@@ -116,22 +144,76 @@ termite_sensitivity <- function(cps_list, conc_list) {
 # 2. 归算核心：三种矿物模式
 # -----------------------------------------------------------------------------
 
+#' 通用「固定阳离子扣除」归一化（fixed 模式）
+#'
+#' 无水矿物电荷归一化的推广：结构式里有几个「配位数固定、但 ICP-MS 测不准」的
+#' 阳离子时，把它们固定成化学式给出的 a.p.f.u.，从阴离子电荷里扣除，其余可测
+#' 阳离子再按电荷归一化。等价地，也就是从「氧化物归一化到 100 wt%」的总和里，
+#' 先按结构式扣掉那些测不准的组分，再归一化剩下测得到的。
+#'
+#'   · 绿柱石 Be3Al2Si6O18：fixed = c(Be = 3)，O = 18 → 可测阳离子电荷目标 30
+#'   · 电气石 XY3Z6(T6O18)(BO3)3(OH,F)4：fixed = c(B = 3, Si = 6)，O = 31，
+#'     n_OH = 4（V3W 位全按 OH 计，与 mica 的「F≈OH」近似一致）
+#'     → 可测阳离子电荷目标 = 2·31 − 4 − (3×3 + 6×4) = 25
+#'
+#' @param fixed  命名向量，元素 → 固定 a.p.f.u.（如 c(Be = 3)）；空则退化为无水矿物
+#' @param n_OH   OH 数（每个 OH 比 O2- 少 1 个负电荷，阴离子电荷 = 2·n_O − n_OH）
+#' @param n_F    F 数（原子量近似按 OH 计，只影响总质量）
+termite_formula_fixed <- function(cps, lambda, M, valence, n_O,
+                                  fixed = numeric(0), n_OH = 0, n_F = 0) {
+  keep <- setdiff(names(cps), names(fixed))          # 固定阳离子不参与电荷平衡
+  Cprime <- cps[keep] * lambda[keep]
+  n  <- Cprime / M[keep]
+  z  <- valence[keep]
+
+  # 固定阳离子的价态与原子量：优先用传入表，缺省回退内置默认表（Be/B/Si 常不在通道里）
+  zf <- .termite_valence_default[names(fixed)]
+  Mf <- .termite_M_default[names(fixed)]
+  hv <- names(fixed)[names(fixed) %in% names(valence)]
+  if (length(hv)) zf[hv] <- valence[hv]
+  hm <- names(fixed)[names(fixed) %in% names(M)]
+  if (length(hm)) Mf[hm] <- M[hm]
+
+  anion_charge <- 2 * n_O - n_OH                       # 阴离子总负电荷（OH 少 1）
+  fixed_charge <- sum(zf * fixed, na.rm = TRUE)        # 固定阳离子贡献的正电荷
+  charge_target <- anion_charge - fixed_charge         # 可测阳离子需平衡的电荷
+  Ff <- charge_target / sum(n * z, na.rm = TRUE)       # 化学式因子
+  apfu <- n * Ff
+
+  M_cat   <- sum(apfu * M[keep], na.rm = TRUE)
+  M_fixed <- sum(Mf * fixed, na.rm = TRUE)
+  M_total <- M_cat + M_fixed + n_O * .M_O + n_OH * .M_H + n_F * .M_F
+
+  conc        <- apfu * M[keep] / M_total * 1e6
+  conc_fixed  <- Mf * fixed / M_total * 1e6            # 固定阳离子的理论含量（供展示/校核）
+
+  list(conc_ug_g = c(conc, conc_fixed),
+       apfu = c(apfu, fixed),
+       formula_factor = Ff, charge_target = charge_target,
+       anion_charge = anion_charge, fixed_charge = fixed_charge,
+       M_total = M_total, fixed = fixed)
+}
+
 #' 无水矿物：电荷归一化（等价于「元素氧化物归一化到 100 wt%」的 AYCF）
 #'
-#' 阳离子总电荷 = 2·n_O（全部阴离子都是 O2-）。
+#' 是 fixed 模式在「无固定阳离子、无 OH」时的特例。
 #' 白钨矿 CaWO4：n_O=4 → 电荷目标 8；锡石 SnO2：n_O=2 → 4；锆石 ZrSiO4：n_O=4 → 8。
-termite_formula_anhydrous <- function(cps, lambda, M, valence, n_O) {
-  keep <- names(cps)
-  Cprime <- cps * lambda[keep]                       # 未归一化元素浓度（µg/g 量级）
-  n  <- Cprime / M[keep]                             # 摩尔（比例，差共同因子）
-  z  <- valence[keep]
-  charge_target <- 2 * n_O
-  Ff <- charge_target / sum(n * z, na.rm = TRUE)     # 化学式因子
-  apfu <- n * Ff
-  M_total <- sum(apfu * M[keep], na.rm = TRUE) + n_O * .M_O
-  conc <- apfu * M[keep] / M_total * 1e6
-  list(conc_ug_g = conc, apfu = apfu, formula_factor = Ff,
-       charge_target = charge_target, M_total = M_total)
+termite_formula_anhydrous <- function(cps, lambda, M, valence, n_O)
+  termite_formula_fixed(cps, lambda, M, valence, n_O = n_O)
+
+#' 解析 CSV 里的 fixed 列："Be:3" → c(Be=3)；"B:3;Si:6" → c(B=3, Si=6)；空 → numeric(0)
+.parse_fixed <- function(s) {
+  if (is.null(s) || length(s) == 0L || is.na(s) || !nzchar(trimws(s)))
+    return(numeric(0))
+  parts <- strsplit(trimws(s), ";", fixed = TRUE)[[1L]]
+  out <- numeric(0)
+  for (p in parts) {
+    p <- trimws(p)
+    if (!nzchar(p)) next
+    kv <- strsplit(p, ":", fixed = TRUE)[[1L]]
+    out[trimws(kv[1L])] <- as.numeric(trimws(kv[2L]))
+  }
+  out
 }
 
 #' 氟磷灰石 Ca5(PO4)3F：结构式补 P 与 F
@@ -299,6 +381,7 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
                     anhydrous = termite_formula_anhydrous,
                     apatite   = termite_formula_apatite,
                     mica      = termite_formula_mica,
+                    fixed     = termite_formula_fixed,
                     stop("不支持的矿物模式：", mp$mode))
 
   sample_cps <- lapply(sample_files, .net_cps)
@@ -309,11 +392,16 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
   lambda_el <- lambda[main_iso]
   names(lambda_el) <- main_el
 
+  fx <- .parse_fixed(mp$fixed)
   out <- lapply(seq_along(sample_files), function(k) {
     cps_k <- sample_cps[[k]][main_iso]; names(cps_k) <- main_el
-    # 只有无水矿物才需要 n_O（电荷目标）；磷灰石/云母用结构式常数
+    # anhydrous 只需 n_O；fixed 还需固定阳离子与 OH/F；磷灰石/云母用结构式常数
     if (identical(mp$mode, "anhydrous"))
       reducer(cps_k, lambda_el, M_el, val_el, n_O = mp$n_O)
+    else if (identical(mp$mode, "fixed"))
+      reducer(cps_k, lambda_el, M_el, val_el,
+              n_O = mp$n_O, fixed = fx,
+              n_OH = as.numeric(mp$n_OH), n_F = as.numeric(mp$n_F))
     else
       reducer(cps_k, lambda_el, M_el, val_el)
   })

@@ -488,6 +488,116 @@ termite_server <- function(input, output, session) {
     d
   }, striped = TRUE, bordered = TRUE, digits = 4)
 
+  # ---------------------------------------------------------------- 公式法校准（无内标）
+  # 矿物下拉候选：来自 mineral_formulas.csv（可扩展），缺省回退内置 8 种矿物
+  observe({
+    defs <- termite_mineral_defs(list(dir = input$dir, app_dir = root))
+    updateSelectizeInput(session, "formula_mineral",
+                         choices = setNames(defs$name,
+                                            sprintf("%s · %s", defs$name, defs$note)))
+  })
+
+  formula_flag <- reactiveVal(NULL)
+  observeEvent(input$run_formula, formula_flag(Sys.time()), ignoreNULL = TRUE)
+
+  formula_res <- eventReactive(formula_flag(), {
+    c0 <- cfg()
+    if (!identical(c0$mode, "spot"))
+      return(structure(list(error = "无内标「矿物化学式归一化」校准目前只支持点分析（spot）。"),
+                       class = "termite_error"))
+    if (is.null(input$formula_mineral) || !nzchar(input$formula_mineral))
+      return(structure(list(error = "请先在左侧选择矿物。"), class = "termite_error"))
+    warn <- character(0)
+    out <- withCallingHandlers(
+      tryCatch(
+        withProgress(message = "公式法归算中…", value = 0, {
+          termite_run_formula(c0, mineral = input$formula_mineral)
+        }),
+        error = function(e) structure(list(error = conditionMessage(e)), class = "termite_error")
+      ),
+      warning = function(w) { warn <<- c(warn, conditionMessage(w)); invokeRestart("muffleWarning") }
+    )
+    attr(out, "warnings") <- warn
+    out
+  })
+
+  formula_ok <- reactive(
+    !inherits(formula_res(), "termite_error") && !is.null(formula_res()$elements))
+
+  # 理论补的元素名（excluded + fixed）
+  .formula_theory <- function(mp) {
+    th <- character(0)
+    if (nzchar(trimws(mp$excluded))) th <- c(th, strsplit(trimws(mp$excluded), ",")[[1]])
+    fx <- .parse_fixed(mp$fixed)
+    if (length(fx)) th <- c(th, names(fx))
+    unique(trimws(th))
+  }
+
+  output$formula_status_bar <- renderUI({
+    if (is.null(formula_flag())) return(NULL)
+    r <- formula_res()
+    if (inherits(r, "termite_error"))
+      return(div(class = "warn-box", paste("出错：", r$error)))
+    div(class = "ok-box",
+        sprintf("完成 · %d 样品 × %d 元素", nrow(r$samples), length(r$elements)))
+  })
+
+  output$formula_summary <- renderUI({
+    if (is.null(formula_flag()))
+      return(div(class = "kpi", "还没有运行。左侧选矿物后点「运行公式法校准」。"))
+    r <- formula_res()
+    if (inherits(r, "termite_error"))
+      return(div(class = "warn-box", paste("运行出错：", r$error)))
+    mp <- r$mineral
+    th <- .formula_theory(mp)
+    div(class = "ok-box",
+        sprintf("矿物：%s（%s，%s）· 模式 %s", mp$name, mp$note, mp$formula, mp$mode),
+        br(),
+        sprintf("样品 %d 个 × 元素 %d 个；按结构式理论补：%s。",
+                nrow(r$samples), length(r$elements),
+                if (length(th)) paste(th, collapse = ", ") else "无（全部实测）"))
+  })
+
+  output$formula_factor_tbl <- renderTable({
+    req(formula_ok()); r <- formula_res()
+    data.frame(样品 = names(r$formula_factor),
+               归一化因子 = signif(r$formula_factor, 6),
+               总分子量_g_mol = signif(r$M_total, 6),
+               check.names = FALSE)
+  }, striped = TRUE, bordered = TRUE)
+
+  output$formula_tbl_note <- renderUI({
+    req(formula_ok()); r <- formula_res()
+    d <- termite_formula_table(r)
+    if (nrow(d) > 200)
+      div(style = "font-size:12.5px;color:#718096",
+          sprintf("共 %d 行，页面预览前 200 行；完整数据请用下方按钮下载。", nrow(d)))
+    else
+      div(style = "font-size:12.5px;color:#718096",
+          "带 * 的元素为按结构式理论补出的值（非实测）。")
+  })
+
+  output$formula_tbl <- renderTable({
+    req(formula_ok()); r <- formula_res()
+    d <- termite_formula_table(r)
+    th <- .formula_theory(r$mineral)
+    th <- intersect(th, names(d))
+    if (length(th)) names(d)[match(th, names(d))] <- paste0(th, " *")
+    if (nrow(d) > 200) d <- d[seq_len(200), , drop = FALSE]
+    num <- vapply(d, is.numeric, logical(1))
+    d[num] <- lapply(d[num], function(x) ifelse(is.na(x), NA, signif(x, 6)))
+    d
+  }, striped = TRUE, bordered = TRUE, digits = 6, na = "")
+
+  output$dl_formula <- downloadHandler(
+    filename = function() sprintf("TERMITE_formula_%s_%s.csv",
+                                  formula_res()$mineral$name,
+                                  format(Sys.time(), "%Y%m%d_%H%M")),
+    content  = function(f)
+      utils::write.table(termite_formula_table(formula_res()), f,
+                         sep = "\t", row.names = FALSE, na = "NA")
+  )
+
   # ---------------------------------------------------------------- 原理
   output$principles <- renderUI({
     p <- file.path(root, "docs", "PRINCIPLES.md")

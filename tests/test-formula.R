@@ -41,7 +41,9 @@ check_close <- function(label, got, want, tol = 1e-8) {
 
 # 价态与原子量（与 termite_formula.R 内部一致）
 M <- c(Ca = 40.078, Sr = 87.62, Mn = 54.93804, W = 183.84, Si = 28.0855,
-       P = 30.973761998, Na = 22.98976928, Al = 26.9815385, K = 39.0983)
+       P = 30.973761998, Na = 22.98976928, Al = 26.9815385, K = 39.0983,
+       Be = 9.0121831, B = 10.81, Cr = 51.9961, Sc = 44.955908,
+       Mg = 24.305, Fe = 55.845)
 val <- .termite_valence_default
 
 # ---------------------------------------------------------------------------
@@ -104,24 +106,81 @@ check_close("Si 还原", r$conc_ug_g["Si"], conc_true["Si"])
 check_close("K  理论补", r$conc_ug_g["K"],  conc_K)
 
 # ---------------------------------------------------------------------------
-# 3b. mineral_formulas.csv 能被正确解析（6 种矿物、含中文备注、BOM）
+# 3b. mineral_formulas.csv 能被正确解析（8 种矿物、含中文备注、BOM）
 # ---------------------------------------------------------------------------
 cat("\n[3b] mineral_formulas.csv 解析\n")
 cfg0 <- list(dir = "", app_dir = root)
 defs_csv <- termite_mineral_defs(cfg0, "TERMITEScriptFolder/mineral_formulas.csv")
-check_close("CSV 矿物数 = 6", nrow(defs_csv), 6)
+check_close("CSV 矿物数 = 8", nrow(defs_csv), 8)
 check_close("CSV 含 scheelite", sum(defs_csv$name == "scheelite"), 1)
 check_close("scheelite mode = anhydrous",
             sum(defs_csv$name == "scheelite" & defs_csv$mode == "anhydrous"), 1)
 check_close("fluorapatite excluded = P",
             sum(defs_csv$name == "fluorapatite" & defs_csv$excluded == "P"), 1)
+check_close("beryl fixed = Be:3",
+            sum(defs_csv$name == "beryl" & defs_csv$fixed == "Be:3"), 1)
+check_close("tourmaline fixed = B:3;Si:6",
+            sum(defs_csv$name == "tourmaline" & defs_csv$fixed == "B:3;Si:6"), 1)
 
 # ---------------------------------------------------------------------------
-# 4. 真实白钨矿数据端到端冒烟（若目录存在）
+# 4. 绿柱石 Be3Al2Si6O18（fixed 模式，固定扣除 Be）
+#    Al 位 = 2（Al 1.8 + Cr 0.1 + Sc 0.1，均 +3），Si = 6，Be 固定 3，O = 18
+#    可测阳离子电荷目标 = 2·18 − 3·2 = 30
+# ---------------------------------------------------------------------------
+cat("\n[4] 绿柱石（固定扣除 Be）\n")
+apfu_true <- c(Al = 1.8, Cr = 0.1, Sc = 0.1, Si = 6.0)
+Fn_Be <- 3; n_O <- 18
+M_total <- sum(apfu_true * M[c("Al", "Cr", "Sc", "Si")]) + Fn_Be * M["Be"] + n_O * .M_O
+conc_true <- apfu_true * M[c("Al", "Cr", "Sc", "Si")] / M_total * 1e6
+conc_Be   <- Fn_Be * M["Be"] / M_total * 1e6
+lam <- c(Al = 0.06, Cr = 0.10, Sc = 0.09, Si = 0.05)
+cps <- conc_true / lam
+r <- termite_formula_fixed(cps, lam, M[c("Al", "Cr", "Sc", "Si")],
+                           val[c("Al", "Cr", "Sc", "Si")],
+                           n_O = n_O, fixed = c(Be = 3))
+check_close("Al 还原", r$conc_ug_g["Al"], conc_true["Al"])
+check_close("Cr 还原", r$conc_ug_g["Cr"], conc_true["Cr"])
+check_close("Sc 还原", r$conc_ug_g["Sc"], conc_true["Sc"])
+check_close("Si 还原", r$conc_ug_g["Si"], conc_true["Si"])
+check_close("Be 理论补", r$conc_ug_g["Be"], conc_Be)
+check_close("apfu Be = 3", r$apfu["Be"], 3)
+check_close("电荷目标 = 30", r$charge_target, 30)
+
+# ---------------------------------------------------------------------------
+# 5. 电气石 XY3Z6(T6O18)(BO3)3(OH)4（fixed 模式，固定扣除 B、Si + OH 修正）
+#    X 位 Na 0.8 + Ca 0.1，Y 位 Mg 2.6 + Fe 0.4，Z 位 Al 6.0；B=3、Si=6、O=31、OH=4
+#    可测阳离子电荷目标 = 2·31 − 4 − (3×3 + 6×4) = 25
+# ---------------------------------------------------------------------------
+cat("\n[5] 电气石（固定扣除 B/Si + OH 修正）\n")
+apfu_true <- c(Na = 0.8, Ca = 0.1, Mg = 2.6, Fe = 0.4, Al = 6.0)
+Fn_B <- 3; Fn_Si <- 6; n_O <- 31; n_OH <- 4
+M_total <- sum(apfu_true * M[c("Na", "Ca", "Mg", "Fe", "Al")]) +
+           Fn_B * M["B"] + Fn_Si * M["Si"] + n_O * .M_O + n_OH * .M_H
+conc_true <- apfu_true * M[c("Na", "Ca", "Mg", "Fe", "Al")] / M_total * 1e6
+conc_B  <- Fn_B * M["B"] / M_total * 1e6
+conc_Si <- Fn_Si * M["Si"] / M_total * 1e6
+lam <- c(Na = 0.12, Ca = 0.085, Mg = 0.07, Fe = 0.08, Al = 0.06)
+cps <- conc_true / lam
+r <- termite_formula_fixed(cps, lam, M[c("Na", "Ca", "Mg", "Fe", "Al")],
+                           val[c("Na", "Ca", "Mg", "Fe", "Al")],
+                           n_O = n_O, fixed = c(B = 3, Si = 6), n_OH = n_OH)
+check_close("Na 还原", r$conc_ug_g["Na"], conc_true["Na"])
+check_close("Ca 还原", r$conc_ug_g["Ca"], conc_true["Ca"])
+check_close("Mg 还原", r$conc_ug_g["Mg"], conc_true["Mg"])
+check_close("Fe 还原", r$conc_ug_g["Fe"], conc_true["Fe"])
+check_close("Al 还原", r$conc_ug_g["Al"], conc_true["Al"])
+check_close("B  理论补", r$conc_ug_g["B"], conc_B)
+check_close("Si 理论补", r$conc_ug_g["Si"], conc_Si)
+check_close("apfu B = 3", r$apfu["B"], 3)
+check_close("apfu Si = 6", r$apfu["Si"], 6)
+check_close("电荷目标 = 25", r$charge_target, 25)
+
+# ---------------------------------------------------------------------------
+# 6. 真实白钨矿数据端到端冒烟（若目录存在）
 # ---------------------------------------------------------------------------
 qt_dir <- "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA"
 if (dir.exists(qt_dir)) {
-  cat("\n[4] 真实白钨矿数据（端到端）\n")
+  cat("\n[6] 真实白钨矿数据（端到端）\n")
   cfg <- termite_defaults("spot")
   cfg$dir <- qt_dir; cfg$layout <- "flat"; cfg$auto_detect <- TRUE
   cfg$dir_sample <- ""; cfg$ref_names <- c("SRM 610", "SRM 612")
@@ -137,7 +196,7 @@ if (dir.exists(qt_dir)) {
   rel_w <- abs(stats::median(W, na.rm = TRUE) - 638500) / 638500
   check_close("W 接近化学计量（+/-5%）", stats::median(W, na.rm = TRUE), 638500, tol = 0.05)
 } else {
-  cat("\n[4] 跳过真实数据用例：找不到 ", qt_dir, "\n", sep = "")
+  cat("\n[6] 跳过真实数据用例：找不到 ", qt_dir, "\n", sep = "")
 }
 
 cat("\n===================================================================\n")

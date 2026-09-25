@@ -144,6 +144,36 @@ Fn_K  = 1 − Σ_{X 位} apfu
 M_total = Σ apfu·M_i + Fn_K·M_K + 2·(M_O + M_H) + 10·M_O
 ```
 
+### 4.4 绿柱石 / 电气石（fixed）—— 固定配位阳离子扣除
+
+有一类矿物，结构式里某个（或几个）主量阳离子的**配位数固定**，但它们
+**ICP-MS 测不准**（或信号不可靠）：
+
+- **绿柱石 Be₃Al₂Si₆O₁₈**：Be 质量小、电离能高、还常受通道水/碱金属干扰，测不准；
+  但 Be 在结构式里固定 3 个。
+- **电气石 XY₃Z₆(T₆O₁₈)(BO₃)₃(OH,F)₄**：B 是轻元素、等离子体里挥发性强、记忆效应重，
+  测不准；Si 是主量、高浓度信号易饱和；两者在结构式里分别固定 3 和 6 个。
+
+这些「测不准但配位数固定」的阳离子，就**按化学式固定它们的 a.p.f.u.，从阴离子电荷里
+扣除**，其余可测阳离子再做电荷归一化。这是 4.1 无水矿物的直接推广：
+
+```
+anion_charge = 2·n_O − n_OH                              # OH⁻ 比 O²⁻ 少 1 个负电荷
+charge_target = anion_charge − Σ z_fixed·apfu_fixed      # 可测阳离子要配平的电荷
+F_f   = charge_target / Σ_{可测} n_i·z_i
+M_total = Σ apfu·M_i + Σ apfu_fixed·M_fixed + n_O·M_O + n_OH·M_H + n_F·M_F
+```
+
+具体到两种矿物：
+
+| 矿物 | fixed | n_O | n_OH | 可测阳离子电荷目标 |
+|---|---|---|---|---|
+| 绿柱石 Be₃Al₂Si₆O₁₈ | `Be:3` | 18 | 0 | 2·18 − 3·2 = **30** |
+| 电气石 …O₁₈(BO₃)₃(OH,F)₄ | `B:3;Si:6` | 31 | 4 | 2·31 − 4 − (3·3+6·4) = **25** |
+
+电气石的 OH 按 4 个计（V₃W 位全按 OH，F 与 OH 原子量相近、电荷相同，近似成立），
+和云母的处理一致。**注意电气石的假设明显多于无水矿物**，见第 7 节第 6 条。
+
 ---
 
 ## 5. 使用方式
@@ -160,20 +190,25 @@ res <- termite_run_formula(cfg, mineral = "scheelite")
 tab <- termite_formula_table(res)        # 导出成数据框
 ```
 
-矿物参数在 `TERMITEScriptFolder/mineral_formulas.csv`，内置 6 种（无此文件时自动用内置表）：
+矿物参数在 `TERMITEScriptFolder/mineral_formulas.csv`，内置 8 种（无此文件时自动用内置表）：
 
-| name | 化学式 | mode | 说明 |
-|---|---|---|---|
-| scheelite | CaWO₄ | anhydrous | 白钨矿 |
-| cassiterite | SnO₂ | anhydrous | 锡石 |
-| zircon | ZrSiO₄ | anhydrous | 锆石 |
-| fluorapatite | Ca₅(PO₄)₃F | apatite | 氟磷灰石 |
-| muscovite | KAl₂(AlSi₃)O₁₀(OH,F)₂ | mica | 白云母 |
-| biotite | K(Mg,Fe)₃(AlSi₃)O₁₀(OH,F)₂ | mica | 黑云母 |
+| name | 化学式 | mode | fixed | 说明 |
+|---|---|---|---|---|
+| scheelite | CaWO₄ | anhydrous | — | 白钨矿 |
+| cassiterite | SnO₂ | anhydrous | — | 锡石 |
+| zircon | ZrSiO₄ | anhydrous | — | 锆石 |
+| fluorapatite | Ca₅(PO₄)₃F | apatite | — | 氟磷灰石 |
+| muscovite | KAl₂(AlSi₃)O₁₀(OH,F)₂ | mica | — | 白云母 |
+| biotite | K(Mg,Fe)₃(AlSi₃)O₁₀(OH,F)₂ | mica | — | 黑云母 |
+| beryl | Be₃Al₂Si₆O₁₈ | fixed | `Be:3` | 绿柱石 |
+| tourmaline | Na(Mg,Fe)₃Al₆Si₆O₁₈(BO₃)₃(OH)₄ | fixed | `B:3;Si:6` | 电气石 |
 
-想加新矿物：在 CSV 里加一行（`name / formula / mode / n_O / n_F / n_OH / excluded`）。
-`excluded` 是「测不准、要按结构式理论补」的元素，目前归算函数里 P / K 是写死的
-（对应 apatite 补 P、mica 补 K）；其余模式无需 excluded。
+想加新矿物：在 CSV 里加一行
+（`name / formula / mode / n_O / n_F / n_OH / fixed / excluded`）。
+- `excluded` 是「测不准、要按结构式理论补」的元素，归算函数里 P / K 是写死的
+  （对应 apatite 补 P、mica 补 K）；
+- `fixed` 是「配位数固定、要按结构式固定 a.p.f.u. 扣除」的阳离子（`元素:个数`，多个用
+  `;` 分隔），走 `fixed` 模式的矿物（绿柱石/电气石）用它；其余矿物留空。
 
 ---
 
@@ -205,6 +240,14 @@ tab <- termite_formula_table(res)        # 导出成数据框
 4. **X 位 apfu 和 = 1 可能为负**：若测得的其它层间阳离子（Na/Ca/Ba…）apfu 之和 > 1，
    云母的 `K = 1 − Σ` 会变负，说明该样品根本不是（纯）云母，结果要警惕。
 5. **只支持点分析**。线扫描的无内标校准（逐点 a.p.f.u. 归一化）尚未实现。
+6. **fixed 模式的假设更多，误差更大**（尤其电气石）：
+   - 固定阳离子的配位数被**强制等于化学式**——绿柱石 Be=3、电气石 B=3 与 Si=6。
+     真实矿物里这些位常被替代（电气石 T 位的 Si↔Al、绿柱石 Be↔Li/Na），
+     假设偏差会直接反映到结果里。
+   - 电气石的 **Fe 价态**（Y 位 Fe²⁺ / Z 位 Fe³⁺）默认按 Fe²⁺ 计；含 Fe³⁺ 会偏。
+   - 电气石 **OH/F 按 4 个 OH** 近似，绿柱石**通道水与通道碱金属被忽略**。
+   因此绿柱石尚属稳健（只扣一个 Be），电气石只能当作**半定量**，结果要和内标法
+   或其它独立手段对拍后再用。
 
 ---
 
@@ -216,7 +259,9 @@ tab <- termite_formula_table(res)        # 导出成数据框
 - 白钨矿：Ca / Sr / W 浓度、a.p.f.u.、电荷平衡全部还原；
 - 氟磷灰石：Ca / Sr / Mn / Si 还原 + P 理论补；
 - 白云母：Na / Al / Si 还原 + K 理论补；
-- `mineral_formulas.csv` 解析（6 种矿物、含逗号的化学式加引号）；
+- 绿柱石：Al / Cr / Sc / Si 还原 + Be 理论补，电荷目标 = 30；
+- 电气石：Na / Ca / Mg / Fe / Al 还原 + B、Si 理论补，电荷目标 = 25；
+- `mineral_formulas.csv` 解析（8 种矿物、含逗号的化学式加引号）；
 - 真实白钨矿数据端到端冒烟：W 中位数落在化学计量值 ±5% 内。
 
 ```bash

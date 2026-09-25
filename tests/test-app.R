@@ -44,7 +44,7 @@ base_inputs <- list(
   file_alias = "TERMITEScriptFolder/ReferenceMaterial_aliases.csv",
   file_iso_alias = "TERMITEScriptFolder/Isotope_aliases.csv",
   scan = 0, apply_probe = 0, suggest_is = 0,
-  verify = 0
+  verify = 0, formula_mineral = "fluorapatite", run_formula = 0
 )
 
 fails <- 0L
@@ -93,6 +93,27 @@ run_case <- function(label, over) {
   })
 }
 
+# 公式法（无内标）校准的接入测试：触发 run_formula，检查反应链与各输出
+run_case_formula <- function(label, over, mineral) {
+  cat("\n[", label, "]\n")
+  inp <- utils::modifyList(base_inputs, over)
+  testServer(termite_server, {
+    do.call(session$setInputs, inp)
+    session$setInputs(formula_mineral = mineral)
+    session$setInputs(run_formula = 1)
+    check("formula_status_bar 有内容", {
+      o <- output$formula_status_bar; stopifnot(!is.null(o))
+    })
+    check("formula 无错误", {
+      r <- formula_res(); stopifnot(is.null(r$error), !is.null(r$elements))
+    })
+    check("formula 汇总", { o <- output$formula_summary; stopifnot(!is.null(o)) })
+    check("formula 因子表", { o <- output$formula_factor_tbl; stopifnot(nrow(o) > 0) })
+    check("formula 结果表", { o <- output$formula_tbl; stopifnot(nrow(o) > 0) })
+    check("formula 结果表 note", { o <- output$formula_tbl_note; stopifnot(!is.null(o)) })
+  })
+}
+
 cat("\n===================================================================\n")
 cat("  TERMITE Shiny · 服务端集成测试\n")
 cat("===================================================================\n")
@@ -120,6 +141,9 @@ run_case("线扫描 · 复刻模式", list(
   raw_which = "sample", raw_file = "HLK2_linescan_example_001.csv",
   raw_rows = c(100, 600)))
 
+run_case_formula("公式法 · 氟磷灰石（自带示例数据）", list(), "fluorapatite")
+run_case_formula("公式法 · 电气石（自带示例数据，验证 fixed 路径）", list(), "tourmaline")
+
 if (dir.exists(qt_dir)) {
   run_case("Qtegra · flat 布局（真实数据）", list(
     dir = qt_dir, layout = "flat", auto_detect = TRUE, dir_sample = "",
@@ -128,6 +152,14 @@ if (dir.exists(qt_dir)) {
     is_iso_sel = "182W", column_IS = 55, is_conc = 638500,
     first_blank = 25, last_blank = 60, first_signal = 70, last_signal = 118,
     raw_which = "sample", raw_file = "20230806CKDA_10.csv", raw_rows = c(16, 130)))
+
+  run_case_formula("公式法 · 白钨矿（真实数据）", list(
+    dir = qt_dir, layout = "flat", auto_detect = TRUE, dir_sample = "",
+    ref_mats = c("SRM 610", "SRM 612"),
+    qc_mats = c("BIR-1G", "BCR-2G", "BHVO-2G"),
+    is_iso_sel = "182W", column_IS = 55, is_conc = 638500,
+    first_blank = 25, last_blank = 60, first_signal = 70, last_signal = 118),
+    "scheelite")
 } else {
   cat("\n[ 跳过 Qtegra 实测用例：找不到 ", qt_dir, " ]\n", sep = "")
 }
