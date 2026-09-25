@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>无内标校准：矿物化学式归一化（AYCF 家族） · TERMITE 文档</title>
+<style>
+  :root{
+    --ink:#26251F; --ink2:#5F5E5A; --ink3:#8A8880;
+    --line:#D8D6CC; --bg:#FFFFFF; --panel:#F8F7F4; --panel2:#EFEEE8;
+    --pur:#4C43AE; --purbg:#EEEDFE; --purline:#AFA9EC;
+    --tea:#0E6650; --teabg:#E3F5EF; --tealine:#9FE1CB;
+    --amb:#7D4A0A; --ambbg:#FAEEDA; --ambline:#FAC775;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       font-size:15.5px;line-height:1.8;font-variant-numeric:tabular-nums}
+  a{color:var(--pur);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 30px 90px}
+
+  /* ---------- sticky nav ---------- */
+  .nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.92);
+       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+       border-bottom:1px solid var(--line)}
+  .nav .inner{max-width:1040px;margin:0 auto;padding:0 30px;display:flex;
+       align-items:center;gap:16px;height:56px}
+  .nav .brand{font-weight:700;font-size:15.5px;color:var(--ink);white-space:nowrap;
+       letter-spacing:-.2px}
+  .nav .brand i{color:var(--pur);font-style:normal}
+  .nav .links{margin-left:auto;display:flex;gap:2px;overflow-x:auto;white-space:nowrap}
+  .nav .links a{color:var(--ink2);font-size:13.5px;padding:6px 11px;border-radius:7px}
+  .nav .links a:hover{background:var(--panel);text-decoration:none;color:var(--ink)}
+  .nav .links a.on{background:var(--purbg);color:var(--pur);font-weight:600}
+  @media(max-width:720px){.nav .links{display:none}}
+
+  /* ---------- 文档头 ---------- */
+  .dochead{margin:38px 0 30px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+  .dochead .kicker{font-size:12.5px;letter-spacing:.14em;color:var(--pur);
+       font-weight:700;margin:0 0 12px}
+  .dochead h1{font-size:32px;font-weight:700;margin:0 0 12px;line-height:1.3;
+       letter-spacing:-.4px}
+  .dochead .sub{color:var(--ink2);font-size:16px;margin:0 0 16px}
+  .dochead .meta{font-size:12.5px;color:var(--ink3)}
+  .dochead .meta code{font-family:Consolas,Menlo,monospace;background:var(--panel);
+       padding:1px 6px;border-radius:4px}
+
+  /* ---------- 布局：侧边目录 + 正文 ---------- */
+  .layout{display:grid;grid-template-columns:228px 1fr;gap:40px;align-items:start}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;gap:0}}
+  .toc{position:sticky;top:76px;font-size:13.5px;line-height:1.65;
+       max-height:calc(100vh - 110px);overflow-y:auto}
+  @media(max-width:900px){.toc{position:static;max-height:none;margin-bottom:26px;
+       padding:16px 18px;background:var(--panel);border-radius:12px}}
+  .toc .t{font-size:11.5px;letter-spacing:.12em;color:var(--ink3);font-weight:700;
+       margin-bottom:10px}
+  .toc ul{list-style:none;margin:0;padding:0}
+  .toc li{margin:0 0 5px}
+  .toc a{color:var(--ink2);display:block;padding:1px 0}
+  .toc a:hover{color:var(--pur);text-decoration:none}
+  .toc ul ul{margin:3px 0 3px 12px;border-left:1px solid var(--line);padding-left:10px}
+  .toc ul ul a{font-size:12.5px;color:var(--ink3)}
+  .toc ul ul a:hover{color:var(--pur)}
+
+  /* ---------- 正文 ---------- */
+  .mbody{min-width:0}
+  .mbody h2{font-size:23px;font-weight:700;margin:44px 0 16px;padding-top:20px;
+       border-top:2px solid var(--line);letter-spacing:-.2px;position:relative;
+       scroll-margin-top:70px}
+  .mbody h2:first-child{border-top:0;padding-top:0;margin-top:0}
+  .mbody h2::before{content:"";position:absolute;top:-2px;left:0;width:56px;height:2px;
+       background:var(--pur)}
+  .mbody h3{font-size:17.5px;font-weight:600;margin:30px 0 10px;color:var(--ink);
+       scroll-margin-top:70px}
+  .mbody h4{font-size:15.5px;font-weight:600;margin:22px 0 8px;color:var(--ink)}
+  .mbody p{margin:0 0 14px;color:var(--ink2)}
+  .mbody strong{color:var(--ink);font-weight:700}
+  .mbody ul,.mbody ol{margin:0 0 14px;padding-left:24px;color:var(--ink2)}
+  .mbody li{margin:0 0 6px}
+  .mbody hr{border:0;border-top:1px dashed var(--line);margin:34px 0}
+  .mbody blockquote{margin:0 0 16px;padding:12px 20px;background:var(--panel);
+       border-left:3px solid var(--purline);border-radius:0 10px 10px 0;color:var(--ink2)}
+  .mbody blockquote p{margin:0;color:var(--ink2)}
+
+  /* 行内代码 */
+  .mbody code{font-family:Consolas,Menlo,monospace;font-size:13px;
+       background:var(--panel);padding:1.5px 6px;border-radius:4px;color:#2A2470}
+  .mbody pre code,.mbody .cite-block code{background:none;color:inherit;padding:0}
+  /* 代码块 */
+  .mbody pre{background:#2A2A33;color:#EAEAF2;border-radius:11px;padding:16px 20px;
+       overflow-x:auto;margin:0 0 16px;line-height:1.7}
+  .mbody pre code{font-family:Consolas,Menlo,monospace;font-size:13.2px}
+
+  /* 表格（宽表可横向滚动） */
+  .tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px}
+  .mbody table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
+  .mbody th,.mbody td{border-bottom:1px solid var(--line);padding:9px 14px;
+       text-align:left;vertical-align:top}
+  .mbody th{background:var(--panel2);font-weight:700;color:var(--ink);white-space:nowrap}
+  .mbody tbody tr:last-child td{border-bottom:0}
+  .mbody td code{font-size:12.5px}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
+       color:var(--ink3);font-size:13.5px;line-height:1.8}
+  footer a{color:var(--ink2)}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="inner">
+  <div class="brand">TERMITE <i>·</i> 文档</div>
+  <div class="links">
+    <a href="index.html">概览</a>
+    <a href="HANDBOOK.html">入门手册</a>
+    <a href="PRINCIPLES.html">归算原理</a>
+    <a href="IMPORT.html">数据导入</a>
+    <a href="FORMULA_CAL.html" class="on">无内标校准</a>
+    <a href="FIXES.html">问题清单</a>
+    <a href="ORIGINAL_README.html">原始说明</a>
+  </div>
+</div></nav>
+
+<div class="wrap">
+  <div class="dochead">
+    <div class="kicker">TERMITE 文档</div>
+    <h1>无内标校准：矿物化学式归一化（AYCF 家族）</h1>
+    <p class="sub">矿物化学式归一化（AYCF 家族）</p>
+    <div class="meta">由 <code>docs/FORMULA_CAL.md</code> 自动生成 ·
+      <a href="FORMULA_CAL.md">查看 Markdown 源文件</a></div>
+  </div>
+
+  <div class="layout">
+    <aside class="toc">
+      <div class="t">目录</div>
+      <ul><ul><li><a href="#0">0. 一句话概括</a></li><li><a href="#1">1. 为什么要绕开内标</a></li><li><a href="#2-100-wt">2. 核心思想：电荷归一化 ≡ 氧化物归一化到 100 wt%</a></li><li><a href="#3">3. 灵敏度 λ：多参考物质回归</a></li><li><a href="#4">4. 三种归算模式</a><ul><li><a href="#41-anhydrous">4.1 无水矿物（anhydrous）—— 电荷归一化</a></li><li><a href="#42-apatite-p-f">4.2 氟磷灰石（apatite）—— 结构式补 P 与 F</a></li><li><a href="#43-mica-k-ohf">4.3 云母（mica）—— 结构式补 K 与 OH(F)</a></li><li><a href="#44-fixed">4.4 绿柱石 / 电气石（fixed）—— 固定配位阳离子扣除</a></li></ul></li><li><a href="#5">5. 使用方式</a></li><li><a href="#6">6. 与内标法的关系（重要）</a></li><li><a href="#7">7. 局限与注意事项</a></li><li><a href="#8">8. 数值自检</a></li><li><a href="#9">9. 与本仓库其它文件的关系</a></li></ul></ul>
+    </aside>
+    <article class="mbody">
+
+<p>这份文档说明 <code>R/termite_formula.R</code> 在算什么、为什么能省掉内标元素、以及哪里容易出错。
+它是<strong>独立的校准策略</strong>，不修改 <code>termite_run()</code>（内标法）的数值路径，由 <code>termite_run_formula()</code>
+单独调用。引用来源：</p>
+<ul>
+<li>Liu et al. (2008) <em>Chem. Geol.</em> 257:34–43 —— AYCF，无水矿物归一化到 100 wt%</li>
+<li>Zhang et al. (2022) <em>JAAS</em> 37:1793 —— 氟磷灰石，用结构式补 P 与 F</li>
+<li>Zhang et al. (2023) <em>JAAS</em> 38:1387 —— 云母，用结构式补 K 与 OH(F)</li>
+</ul>
+<hr />
+<h2 id="0">0. 一句话概括</h2>
+<blockquote>
+<p>传统内标法需要先用 EPMA 测出样品里某个元素（内标）的含量 <code>C_IS</code>，用来归一化剥蚀产率。
+矿物化学式归一化<strong>用矿物本身的化学式（a.p.f.u. / 电荷平衡）替代内标</strong>：
+测得的所有阳离子必须满足该矿物的结构式约束，这个约束定出一个「归一化因子」，
+从而把相对浓度换算成绝对浓度，全程不需要 EPMA。</p>
+</blockquote>
+<p>对无水矿物，这个约束是<strong>电荷平衡</strong>（所有阳离子电荷总和 = 阴离子 O²⁻ 电荷总和）；
+对含 F/Cl/OH、或含高电离能 P / 层间 K 的矿物，这些组分 ICP-MS 测不准，
+就<strong>按结构式理论补出来</strong>，再从归一化总和里剔除。</p>
+<hr />
+<h2 id="1">1. 为什么要绕开内标</h2>
+<p>内标法（见 <a href="PRINCIPLES.html">PRINCIPLES.html</a> 第 4 节）的两个前提是：</p>
+<ol>
+<li>内标元素在样品中<strong>含量已知</strong>（通常靠 EPMA 或全岩分析）；</li>
+<li>内标元素在样品中<strong>均匀分布</strong>。</li>
+</ol>
+<p>麻烦在于：</p>
+<ul>
+<li><strong>EPMA 是额外的、更贵的实验</strong>，而且样品要抛光、镀膜、可被电子束打到；</li>
+<li>有些矿物的"自然内标"不好找：氟磷灰石里 Ca 是主量但 P 测不准；云母里 K 在层间位、
+  LA 剥蚀时分馏严重，用 K 做内标不可靠；</li>
+<li>样品太小、或只想快速筛一批数据时，先补 EPMA 再归算，流程被拉长。</li>
+</ul>
+<p>矿物化学式归一化正好对症：<strong>矿物化学式本身就是最"硬"的约束</strong>——你测了白钨矿，
+就该得到 CaWO₄ 的阳离子比例，这个比例不依赖 EPMA。</p>
+<hr />
+<h2 id="2-100-wt">2. 核心思想：电荷归一化 ≡ 氧化物归一化到 100 wt%</h2>
+<p>先讲一个等价关系，它是整套方法的数学根基。</p>
+<p>把「元素 i」换算成「氧化物 i」时，每个元素对应一个换算因子：</p>
+<pre><code>l_i = 1 + (z_i / 2) · (M_O / M_i)
+</code></pre>
+<p>其中 <code>z_i</code> 是元素价态（决定氧化物里带几个 O），<code>M_O</code> / <code>M_i</code> 是氧 / 元素的原子量。
+例：Ca（z=2，M=40.078）→ <code>l_Ca = 1 + (2/2)·(15.999/40.078) = 1.399</code>，即 CaO/Ca。
+Si（z=4）→ <code>l_Si = 1 + (4/2)·(15.999/28.0855) = 2.139</code>，即 SiO₂/Si。</p>
+<p>于是：</p>
+<pre><code>氧化物总质量 = Σ C_i · l_i = Σ (n_i · M_i) · (1 + (z_i/2)·M_O/M_i)
+             = Σ n_i·M_i + (M_O/2)·Σ n_i·z_i
+</code></pre>
+<p>如果所有阳离子的电荷总和被固定为 <code>Σ n_i·z_i = 2·n_O</code>（<code>n_O</code> 是化学式里的氧原子数），
+那么：</p>
+<pre><code>氧化物总质量 = Σ n_i·M_i + M_O·n_O = 矿物分子量 M_total
+</code></pre>
+<p>也就是说：<strong>「阳离子电荷平衡」和「元素氧化物总和 = 100 wt%」在数学上完全等价</strong>。
+AYCF 原文说的是后者（把测得元素写成氧化物、归一化到 100%），
+本实现直接做前者（电荷平衡），更省一步、也更容易把"测不准的元素"从和里抠出去。</p>
+<hr />
+<h2 id="3">3. 灵敏度 λ：多参考物质回归</h2>
+<p>内标法里的 RSF 是「未校正浓度 ÷ 推荐值」，同样，这里需要先有一个把 cps 变成
+"未归一化浓度"的灵敏度因子 λ：</p>
+<pre><code>λ_i = Σ C_i^rm / Σ cps_i^rm         （对所有定标参考物质求和）
+</code></pre>
+<p>它和内标法共用参考物质推荐值表（<code>Standards_GeoReM.csv</code>），区别在于：
+λ 是「每单位 cps 对应的 µg/g」，而 RSF 是「相对内标的无因次校正因子」。</p>
+<p>有了 λ，任何样品的<strong>未归一化浓度</strong>是：</p>
+<pre><code>C'_i = cps_i · λ_i
+</code></pre>
+<p>它还不是真实浓度——因为剥蚀产率、基体差异等因素会让 <code>C'_i</code> 整体偏大或偏小一个<strong>共同因子</strong>。
+矿物结构式约束就是用来定这个共同因子的。</p>
+<hr />
+<h2 id="4">4. 三种归算模式</h2>
+<h3 id="41-anhydrous">4.1 无水矿物（anhydrous）—— 电荷归一化</h3>
+<p>适用于白钨矿 CaWO₄、锡石 SnO₂、锆石 ZrSiO₄ 这类<strong>所有阴离子都是 O²⁻</strong> 的矿物。</p>
+<pre><code>n_i  = C'_i / M_i                    # 未归一化摩尔数
+F_f  = (2·n_O) / Σ n_i·z_i           # 化学式因子（电荷平衡定出）
+apfu = n_i · F_f                     # 换算成 a.p.f.u.（每单位分子式原子数）
+C_i  = apfu · M_i / M_total × 10⁶    # M_total = Σ apfu·M_i + n_O·M_O
+</code></pre>
+<p><code>F_f</code> 的意义：它把「cps 里那些未知的剥蚀/传输/电离因子」一次性吸收掉，
+使得阳离子电荷恰好配平。这也是为什么它叫"化学式因子"——它让测量结果<strong>落在化学式上</strong>。</p>
+<h3 id="42-apatite-p-f">4.2 氟磷灰石（apatite）—— 结构式补 P 与 F</h3>
+<p><code>Ca₅(PO₄)₃F</code>：<strong>P 高电离能、F 不电离</strong>，ICP-MS 都测不准。做法：</p>
+<ul>
+<li>Ca 位（除 P 位外的阳离子）apfu 和 = 5 → 定出 <code>F_f = 5 / Σ n_ca</code></li>
+<li>P 位（P + Si + As）apfu 和 = 3 → <strong>P = 3 − Si − As</strong>（Si、As 若测得到就从和里扣）</li>
+<li>F = 1，O = 12（结构式常数，硬编码进归算）</li>
+</ul>
+<pre><code>F_f  = 5 / Σ_{Ca 位} n_i
+Fn_P = 3 − Fn_Si − Fn_As
+M_total = Σ apfu·M_i + Fn_P·M_P + Fn_F·M_F + 12·M_O
+</code></pre>
+<h3 id="43-mica-k-ohf">4.3 云母（mica）—— 结构式补 K 与 OH(F)</h3>
+<p><code>X Y₂₋₃ Z₄ O₁₀ (OH,F)₂</code>：<strong>K 在层间位</strong>，LA 剥蚀时分馏强、参考物质里 K 也常偏低，测不准。
+Zhang et al. (2023) 的 AYCF² 做法：</p>
+<ul>
+<li>Y+Z 位（非层间阳离子）电荷归一化到 <strong>21</strong>（总 22，X 位整体按 +1 计）→ 定出 <code>F_f</code></li>
+<li>X 位（Na + K + Rb + Cs + Ca + Ba + Sr）apfu 和 = 1 → <strong>K = 1 − 其余层间阳离子</strong></li>
+<li>挥发性组分全按 OH 计：OH = 2，O = 10（F 与 OH 原子量相近，含 F 云母近似成 OH）</li>
+</ul>
+<pre><code>F_f   = 21 / Σ_{Y+Z 位} n_i·z_i
+Fn_K  = 1 − Σ_{X 位} apfu
+M_total = Σ apfu·M_i + Fn_K·M_K + 2·(M_O + M_H) + 10·M_O
+</code></pre>
+<h3 id="44-fixed">4.4 绿柱石 / 电气石（fixed）—— 固定配位阳离子扣除</h3>
+<p>有一类矿物，结构式里某个（或几个）主量阳离子的<strong>配位数固定</strong>，但它们
+<strong>ICP-MS 测不准</strong>（或信号不可靠）：</p>
+<ul>
+<li><strong>绿柱石 Be₃Al₂Si₆O₁₈</strong>：Be 质量小、电离能高、还常受通道水/碱金属干扰，测不准；
+  但 Be 在结构式里固定 3 个。</li>
+<li><strong>电气石 XY₃Z₆(T₆O₁₈)(BO₃)₃(OH,F)₄</strong>：B 是轻元素、等离子体里挥发性强、记忆效应重，
+  测不准；Si 是主量、高浓度信号易饱和；两者在结构式里分别固定 3 和 6 个。</li>
+</ul>
+<p>这些「测不准但配位数固定」的阳离子，就<strong>按化学式固定它们的 a.p.f.u.，从阴离子电荷里
+扣除</strong>，其余可测阳离子再做电荷归一化。这是 4.1 无水矿物的直接推广：</p>
+<pre><code>anion_charge = 2·n_O − n_OH                              # OH⁻ 比 O²⁻ 少 1 个负电荷
+charge_target = anion_charge − Σ z_fixed·apfu_fixed      # 可测阳离子要配平的电荷
+F_f   = charge_target / Σ_{可测} n_i·z_i
+M_total = Σ apfu·M_i + Σ apfu_fixed·M_fixed + n_O·M_O + n_OH·M_H + n_F·M_F
+</code></pre>
+<p>具体到两种矿物：</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>矿物</th>
+<th>fixed</th>
+<th>n_O</th>
+<th>n_OH</th>
+<th>可测阳离子电荷目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>绿柱石 Be₃Al₂Si₆O₁₈</td>
+<td><code>Be:3</code></td>
+<td>18</td>
+<td>0</td>
+<td>2·18 − 3·2 = <strong>30</strong></td>
+</tr>
+<tr>
+<td>电气石 …O₁₈(BO₃)₃(OH,F)₄</td>
+<td><code>B:3;Si:6</code></td>
+<td>31</td>
+<td>4</td>
+<td>2·31 − 4 − (3·3+6·4) = <strong>25</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>电气石的 OH 按 4 个计（V₃W 位全按 OH，F 与 OH 原子量相近、电荷相同，近似成立），
+和云母的处理一致。<strong>注意电气石的假设明显多于无水矿物</strong>，见第 7 节第 6 条。</p>
+<hr />
+<h2 id="5">5. 使用方式</h2>
+<pre><code class="language-r">source(&quot;R/termite_core.R&quot;); source(&quot;R/termite_formula.R&quot;)   # 或直接 source 整个 R/
+
+cfg &lt;- termite_defaults(&quot;spot&quot;)          # 目前只支持点分析
+cfg$dir &lt;- &quot;&lt;数据目录&gt;&quot;
+cfg$layout &lt;- &quot;flat&quot;                     # 或 &quot;dir&quot;
+cfg$ref_names &lt;- c(&quot;SRM 610&quot;, &quot;SRM 612&quot;)
+
+res &lt;- termite_run_formula(cfg, mineral = &quot;scheelite&quot;)
+tab &lt;- termite_formula_table(res)        # 导出成数据框
+</code></pre>
+<p>矿物参数在 <code>TERMITEScriptFolder/mineral_formulas.csv</code>，内置 8 种（无此文件时自动用内置表）：</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>name</th>
+<th>化学式</th>
+<th>mode</th>
+<th>fixed</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>scheelite</td>
+<td>CaWO₄</td>
+<td>anhydrous</td>
+<td>—</td>
+<td>白钨矿</td>
+</tr>
+<tr>
+<td>cassiterite</td>
+<td>SnO₂</td>
+<td>anhydrous</td>
+<td>—</td>
+<td>锡石</td>
+</tr>
+<tr>
+<td>zircon</td>
+<td>ZrSiO₄</td>
+<td>anhydrous</td>
+<td>—</td>
+<td>锆石</td>
+</tr>
+<tr>
+<td>fluorapatite</td>
+<td>Ca₅(PO₄)₃F</td>
+<td>apatite</td>
+<td>—</td>
+<td>氟磷灰石</td>
+</tr>
+<tr>
+<td>muscovite</td>
+<td>KAl₂(AlSi₃)O₁₀(OH,F)₂</td>
+<td>mica</td>
+<td>—</td>
+<td>白云母</td>
+</tr>
+<tr>
+<td>biotite</td>
+<td>K(Mg,Fe)₃(AlSi₃)O₁₀(OH,F)₂</td>
+<td>mica</td>
+<td>—</td>
+<td>黑云母</td>
+</tr>
+<tr>
+<td>beryl</td>
+<td>Be₃Al₂Si₆O₁₈</td>
+<td>fixed</td>
+<td><code>Be:3</code></td>
+<td>绿柱石</td>
+</tr>
+<tr>
+<td>tourmaline</td>
+<td>Na(Mg,Fe)₃Al₆Si₆O₁₈(BO₃)₃(OH)₄</td>
+<td>fixed</td>
+<td><code>B:3;Si:6</code></td>
+<td>电气石</td>
+</tr>
+</tbody>
+</table></div>
+<p>想加新矿物：在 CSV 里加一行
+（<code>name / formula / mode / n_O / n_F / n_OH / fixed / excluded</code>）。
+- <code>excluded</code> 是「测不准、要按结构式理论补」的元素，归算函数里 P / K 是写死的
+  （对应 apatite 补 P、mica 补 K）；
+- <code>fixed</code> 是「配位数固定、要按结构式固定 a.p.f.u. 扣除」的阳离子（<code>元素:个数</code>，多个用
+  <code>;</code> 分隔），走 <code>fixed</code> 模式的矿物（绿柱石/电气石）用它；其余矿物留空。</p>
+<hr />
+<h2 id="6">6. 与内标法的关系（重要）</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th></th>
+<th>内标法 <code>termite_run()</code></th>
+<th>化学式归一化 <code>termite_run_formula()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>归一化依据</td>
+<td>内标元素含量 <code>C_IS</code>（EPMA）</td>
+<td>矿物结构式（电荷 / apfu）</td>
+</tr>
+<tr>
+<td>定标</td>
+<td>RSF（参考物质）</td>
+<td>λ（参考物质）</td>
+</tr>
+<tr>
+<td>需要 EPMA</td>
+<td><strong>要</strong></td>
+<td><strong>不要</strong></td>
+</tr>
+<tr>
+<td>前提</td>
+<td>内标已知且均匀</td>
+<td>知道矿物化学式 + 价态假设正确</td>
+</tr>
+<tr>
+<td>支持线扫描</td>
+<td>是</td>
+<td>目前否（只 spot）</td>
+</tr>
+</tbody>
+</table></div>
+<p>两者共用：读数据层（<code>termite_import.R</code>）、参考物质推荐值表、同位素原子量/丰度表、文件分类。
+<strong>它们是并列的两条路</strong>，不会互相影响——<code>termite_run()</code> 的逐位对拍测试
+（<code>tests/test-parity.R</code>）在加了本模块后依然原样通过。</p>
+<hr />
+<h2 id="7">7. 局限与注意事项</h2>
+<ol>
+<li><strong>λ 仍然依赖参考物质</strong>。省掉的是 EPMA，不是定标本身；样品与参考物质基体差异大时
+   λ 同样不可转移（和 RSF 的局限同源）。</li>
+<li><strong>价态是假设</strong>。默认价态表按地学常规（Fe→Fe²⁺、Mn→Mn²⁺、W→W⁶⁺ 等）写死，
+   若你的矿物里元素价态不同（如含 Fe³⁺），电荷平衡会偏，需要覆盖
+   <code>termite_run_formula(cfg, mineral, valence = c(...))</code>。</li>
+<li><strong>测不准的元素按化学式"理论补"</strong>，它们的浓度是<strong>约束算出来的</strong>，不是测出来的。
+   例如磷灰石的 P、云母的 K 与 OH——这些数字的正确性取决于结构式假设对不对。</li>
+<li><strong>X 位 apfu 和 = 1 可能为负</strong>：若测得的其它层间阳离子（Na/Ca/Ba…）apfu 之和 &gt; 1，
+   云母的 <code>K = 1 − Σ</code> 会变负，说明该样品根本不是（纯）云母，结果要警惕。</li>
+<li><strong>只支持点分析</strong>。线扫描的无内标校准（逐点 a.p.f.u. 归一化）尚未实现。</li>
+<li><strong>fixed 模式的假设更多，误差更大</strong>（尤其电气石）：
+   - 固定阳离子的配位数被<strong>强制等于化学式</strong>——绿柱石 Be=3、电气石 B=3 与 Si=6。
+     真实矿物里这些位常被替代（电气石 T 位的 Si↔Al、绿柱石 Be↔Li/Na），
+     假设偏差会直接反映到结果里。
+   - 电气石的 <strong>Fe 价态</strong>（Y 位 Fe²⁺ / Z 位 Fe³⁺）默认按 Fe²⁺ 计；含 Fe³⁺ 会偏。
+   - 电气石 <strong>OH/F 按 4 个 OH</strong> 近似，绿柱石<strong>通道水与通道碱金属被忽略</strong>。
+   因此绿柱石尚属稳健（只扣一个 Be），电气石只能当作<strong>半定量</strong>，结果要和内标法
+   或其它独立手段对拍后再用。</li>
+</ol>
+<hr />
+<h2 id="8">8. 数值自检</h2>
+<p><code>tests/test-formula.R</code> 用「构造已知成分的矿物 → 反推它会产生什么 cps → 喂回归算函数」
+的方式做纯代数还原验证（相对偏差 &lt; 1e-8）：</p>
+<ul>
+<li>白钨矿：Ca / Sr / W 浓度、a.p.f.u.、电荷平衡全部还原；</li>
+<li>氟磷灰石：Ca / Sr / Mn / Si 还原 + P 理论补；</li>
+<li>白云母：Na / Al / Si 还原 + K 理论补；</li>
+<li>绿柱石：Al / Cr / Sc / Si 还原 + Be 理论补，电荷目标 = 30；</li>
+<li>电气石：Na / Ca / Mg / Fe / Al 还原 + B、Si 理论补，电荷目标 = 25；</li>
+<li><code>mineral_formulas.csv</code> 解析（8 种矿物、含逗号的化学式加引号）；</li>
+<li>真实白钨矿数据端到端冒烟：W 中位数落在化学计量值 ±5% 内。</li>
+</ul>
+<pre><code class="language-bash">Rscript tests/test-formula.R
+</code></pre>
+<hr />
+<h2 id="9">9. 与本仓库其它文件的关系</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>R/termite_formula.R</code></td>
+<td>本文全部实现，纯 base R，零外部依赖</td>
+</tr>
+<tr>
+<td><code>TERMITEScriptFolder/mineral_formulas.csv</code></td>
+<td>矿物结构式参数表（可扩展）</td>
+</tr>
+<tr>
+<td><code>tests/test-formula.R</code></td>
+<td>数值自检 + 真实数据冒烟</td>
+</tr>
+<tr>
+<td><code>docs/PRINCIPLES.md</code></td>
+<td>内标法（<code>termite_run</code>）的原理</td>
+</tr>
+<tr>
+<td><code>docs/IMPORT.md</code></td>
+<td>数据导入、别名表、内标选择</td>
+</tr>
+</tbody>
+</table></div>
+    </article>
+  </div>
+
+  <footer>
+    TERMITE 交互式 LA-ICP-MS 微量元素数据归算 ·
+    <a href="index.html">返回项目主页</a> ·
+    <a href="https://github.com/chengkaide/TERMITE">GitHub 仓库</a>
+  </footer>
+</div>
+</body>
+</html>

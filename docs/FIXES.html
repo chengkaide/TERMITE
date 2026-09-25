@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>原始 TERMITE 脚本的问题清单与修改说明 · TERMITE 文档</title>
+<style>
+  :root{
+    --ink:#26251F; --ink2:#5F5E5A; --ink3:#8A8880;
+    --line:#D8D6CC; --bg:#FFFFFF; --panel:#F8F7F4; --panel2:#EFEEE8;
+    --pur:#4C43AE; --purbg:#EEEDFE; --purline:#AFA9EC;
+    --tea:#0E6650; --teabg:#E3F5EF; --tealine:#9FE1CB;
+    --amb:#7D4A0A; --ambbg:#FAEEDA; --ambline:#FAC775;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       font-size:15.5px;line-height:1.8;font-variant-numeric:tabular-nums}
+  a{color:var(--pur);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 30px 90px}
+
+  /* ---------- sticky nav ---------- */
+  .nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.92);
+       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+       border-bottom:1px solid var(--line)}
+  .nav .inner{max-width:1040px;margin:0 auto;padding:0 30px;display:flex;
+       align-items:center;gap:16px;height:56px}
+  .nav .brand{font-weight:700;font-size:15.5px;color:var(--ink);white-space:nowrap;
+       letter-spacing:-.2px}
+  .nav .brand i{color:var(--pur);font-style:normal}
+  .nav .links{margin-left:auto;display:flex;gap:2px;overflow-x:auto;white-space:nowrap}
+  .nav .links a{color:var(--ink2);font-size:13.5px;padding:6px 11px;border-radius:7px}
+  .nav .links a:hover{background:var(--panel);text-decoration:none;color:var(--ink)}
+  .nav .links a.on{background:var(--purbg);color:var(--pur);font-weight:600}
+  @media(max-width:720px){.nav .links{display:none}}
+
+  /* ---------- 文档头 ---------- */
+  .dochead{margin:38px 0 30px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+  .dochead .kicker{font-size:12.5px;letter-spacing:.14em;color:var(--pur);
+       font-weight:700;margin:0 0 12px}
+  .dochead h1{font-size:32px;font-weight:700;margin:0 0 12px;line-height:1.3;
+       letter-spacing:-.4px}
+  .dochead .sub{color:var(--ink2);font-size:16px;margin:0 0 16px}
+  .dochead .meta{font-size:12.5px;color:var(--ink3)}
+  .dochead .meta code{font-family:Consolas,Menlo,monospace;background:var(--panel);
+       padding:1px 6px;border-radius:4px}
+
+  /* ---------- 布局：侧边目录 + 正文 ---------- */
+  .layout{display:grid;grid-template-columns:228px 1fr;gap:40px;align-items:start}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;gap:0}}
+  .toc{position:sticky;top:76px;font-size:13.5px;line-height:1.65;
+       max-height:calc(100vh - 110px);overflow-y:auto}
+  @media(max-width:900px){.toc{position:static;max-height:none;margin-bottom:26px;
+       padding:16px 18px;background:var(--panel);border-radius:12px}}
+  .toc .t{font-size:11.5px;letter-spacing:.12em;color:var(--ink3);font-weight:700;
+       margin-bottom:10px}
+  .toc ul{list-style:none;margin:0;padding:0}
+  .toc li{margin:0 0 5px}
+  .toc a{color:var(--ink2);display:block;padding:1px 0}
+  .toc a:hover{color:var(--pur);text-decoration:none}
+  .toc ul ul{margin:3px 0 3px 12px;border-left:1px solid var(--line);padding-left:10px}
+  .toc ul ul a{font-size:12.5px;color:var(--ink3)}
+  .toc ul ul a:hover{color:var(--pur)}
+
+  /* ---------- 正文 ---------- */
+  .mbody{min-width:0}
+  .mbody h2{font-size:23px;font-weight:700;margin:44px 0 16px;padding-top:20px;
+       border-top:2px solid var(--line);letter-spacing:-.2px;position:relative;
+       scroll-margin-top:70px}
+  .mbody h2:first-child{border-top:0;padding-top:0;margin-top:0}
+  .mbody h2::before{content:"";position:absolute;top:-2px;left:0;width:56px;height:2px;
+       background:var(--pur)}
+  .mbody h3{font-size:17.5px;font-weight:600;margin:30px 0 10px;color:var(--ink);
+       scroll-margin-top:70px}
+  .mbody h4{font-size:15.5px;font-weight:600;margin:22px 0 8px;color:var(--ink)}
+  .mbody p{margin:0 0 14px;color:var(--ink2)}
+  .mbody strong{color:var(--ink);font-weight:700}
+  .mbody ul,.mbody ol{margin:0 0 14px;padding-left:24px;color:var(--ink2)}
+  .mbody li{margin:0 0 6px}
+  .mbody hr{border:0;border-top:1px dashed var(--line);margin:34px 0}
+  .mbody blockquote{margin:0 0 16px;padding:12px 20px;background:var(--panel);
+       border-left:3px solid var(--purline);border-radius:0 10px 10px 0;color:var(--ink2)}
+  .mbody blockquote p{margin:0;color:var(--ink2)}
+
+  /* 行内代码 */
+  .mbody code{font-family:Consolas,Menlo,monospace;font-size:13px;
+       background:var(--panel);padding:1.5px 6px;border-radius:4px;color:#2A2470}
+  .mbody pre code,.mbody .cite-block code{background:none;color:inherit;padding:0}
+  /* 代码块 */
+  .mbody pre{background:#2A2A33;color:#EAEAF2;border-radius:11px;padding:16px 20px;
+       overflow-x:auto;margin:0 0 16px;line-height:1.7}
+  .mbody pre code{font-family:Consolas,Menlo,monospace;font-size:13.2px}
+
+  /* 表格（宽表可横向滚动） */
+  .tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px}
+  .mbody table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
+  .mbody th,.mbody td{border-bottom:1px solid var(--line);padding:9px 14px;
+       text-align:left;vertical-align:top}
+  .mbody th{background:var(--panel2);font-weight:700;color:var(--ink);white-space:nowrap}
+  .mbody tbody tr:last-child td{border-bottom:0}
+  .mbody td code{font-size:12.5px}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
+       color:var(--ink3);font-size:13.5px;line-height:1.8}
+  footer a{color:var(--ink2)}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="inner">
+  <div class="brand">TERMITE <i>·</i> 文档</div>
+  <div class="links">
+    <a href="index.html">概览</a>
+    <a href="HANDBOOK.html">入门手册</a>
+    <a href="PRINCIPLES.html">归算原理</a>
+    <a href="IMPORT.html">数据导入</a>
+    <a href="FORMULA_CAL.html">无内标校准</a>
+    <a href="FIXES.html" class="on">问题清单</a>
+    <a href="ORIGINAL_README.html">原始说明</a>
+  </div>
+</div></nav>
+
+<div class="wrap">
+  <div class="dochead">
+    <div class="kicker">TERMITE 文档</div>
+    <h1>原始 TERMITE 脚本的问题清单与修改说明</h1>
+    <p class="sub">原始脚本的缺陷与逐条修复说明</p>
+    <div class="meta">由 <code>docs/FIXES.md</code> 自动生成 ·
+      <a href="FIXES.md">查看 Markdown 源文件</a></div>
+  </div>
+
+  <div class="layout">
+    <aside class="toc">
+      <div class="t">目录</div>
+      <ul><ul><li><a href="#_1">一、致命问题（脚本直接跑不起来）</a><ul><li><a href="#f1-matrixstats">F1 · 线扫描脚本中途卸载了 matrixStats，导致必然崩溃</a></li><li><a href="#f2-dataframe-colmedians">F2 · 线扫描把 data.frame 传给了只接受矩阵的 colMedians</a></li><li><a href="#f3-misctools-1">F3 · 加载了从未使用的 miscTools，未安装该包时脚本死在第 1 行</a></li></ul></li><li><a href="#_2">二、数值/逻辑缺陷</a><ul><li><a href="#f4">F4 · 文本清洗的正则会把负号吃掉</a></li><li><a href="#f5-lrresolution">F5 · 分辨率后缀写死成 "(LR)"，resolution 变量在关键位置被忽略</a></li><li><a href="#f13-in-115-in-116">F13 · 参考表里 In-115 被误写成 In-116</a></li></ul></li><li><a href="#_3">三、设计缺陷（结果可解释性）</a><ul><li><a href="#f6-lod">F6 · 报出的"参考物质 LoD"在线扫描时漏掉了第一个参考文件</a></li><li><a href="#f7-lod-0">F7 · LoD 公式在 σ = 0 时的兜底会摧毁量纲</a></li><li><a href="#f8-x">F8 · 线扫描 x 轴与实际数据行错位</a></li><li><a href="#f9">F9 · 两个入口脚本对"参考物质积分窗口"的默认值不一致</a></li><li><a href="#f10-x">F10 · X 矩阵在文件之间复用时没有清零</a></li><li><a href="#f11">F11 · 负值处理在两种模式间不一致</a></li><li><a href="#f12">F12 · 若干死代码与误导性注释</a></li></ul></li><li><a href="#_4">四、修改后的对照</a></li><li><a href="#_5">五、一个诚实的提醒</a></li></ul></ul>
+    </aside>
+    <article class="mbody">
+
+<p>本文记录在把原始脚本（<code>your_main_directory/</code> 中的 4 个 <code>.r</code> 文件，共 1150 行）重构为
+<code>R/termite_core.R</code> 的过程中，实际<strong>复现并验证过</strong>的问题，以及每一处的处理方式。</p>
+<p>所有"影响"一栏的结论都来自实测，不是代码阅读的推测。
+复现方法：<code>Rscript tests/test-parity.R</code>。</p>
+<hr />
+<h2 id="_1">一、致命问题（脚本直接跑不起来）</h2>
+<h3 id="f1-matrixstats">F1 · 线扫描脚本中途卸载了 <code>matrixStats</code>，导致必然崩溃</h3>
+<p><strong>位置</strong>：<code>TERMITEScriptFolder/Correction_Script_line_scan_TERMITE.r:190</code></p>
+<pre><code class="language-r">write.table(round(colMedians(w.LoD,na.rm=TRUE), digits=5), ... )
+detach(&quot;package:matrixStats&quot;, unload=TRUE)      # ← 这里
+...
+background &lt;- matrix(colMedians(sample.linescan[...]), ...)   # ← 148 行之后还要用
+</code></pre>
+<p><strong>现象</strong>（实测）：</p>
+<pre><code>Error in colMedians(sample.linescan[first.blankValue.linescan:last.blankValue.linescan, :
+  could not find function &quot;colMedians&quot;
+Execution halted
+</code></pre>
+<p><strong>影响</strong>：线扫描模式<strong>从头到尾无法产出 <code>Results_*_linescan.csv</code></strong>。
+仓库 <code>Results/</code> 里那份线扫描结果，必然来自更早的脚本版本。</p>
+<p><strong>处理</strong>：延后到脚本末尾再 detach（重构版根本不需要 detach，因为不加载该包）。</p>
+<hr />
+<h3 id="f2-dataframe-colmedians">F2 · 线扫描把 <code>data.frame</code> 传给了只接受矩阵的 <code>colMedians</code></h3>
+<p><strong>位置</strong>：同上，第 440 行；根源在第 398–399 行</p>
+<pre><code class="language-r">sample.linescan &lt;- as.data.frame(EWerte[[1]])          # ← 变成了 data.frame
+...
+background &lt;- matrix(colMedians(sample.linescan[first.blankValue.linescan:last.blankValue.linescan,]), ...)
+</code></pre>
+<p><code>matrixStats::colMedians()</code> 要求 <code>matrix</code> 或 <code>vector</code>；<code>data.frame[i, ]</code> 取出来仍是 <code>data.frame</code>。</p>
+<p><strong>现象</strong>（实测，把 F1 修掉之后立刻撞上）：</p>
+<pre><code>Error ... Argument 'x' must be a matrix or a vector.
+Calls: source ... eval -&gt; eval -&gt; matrix -&gt; colMedians
+</code></pre>
+<p><strong>为什么点分析脚本没这个问题</strong>：点分析里 <code>LISTE[[i]]</code> 是被 <code>sapply()</code> 转过的 <strong>matrix</strong>，
+所以 <code>colMedians(LISTE[[i]][rows, ])</code> 合法。两个脚本在这一点上并不对称。</p>
+<p><strong>处理</strong>：重构版内部一律用 matrix；读取函数返回矩阵。</p>
+<p>修掉 F1、F2，并把几处 <code>data.frame</code> 与 <code>matrix</code> 的隐式运算显式化之后，
+线扫描脚本的输出与仓库自带的 <code>Results_your_sample_name_linescan.csv</code> <strong>逐位一致</strong>
+（6748 行 × 13 列，最大相对偏差 0）。</p>
+<hr />
+<h3 id="f3-misctools-1">F3 · 加载了从未使用的 <code>miscTools</code>，未安装该包时脚本死在第 1 行</h3>
+<p><strong>位置</strong>：<code>TERMITE_spotscan.r:22</code>、<code>TERMITE_linescan.r:23</code></p>
+<pre><code class="language-r">if (!require(&quot;miscTools&quot;)) install.packages(&quot;miscTools&quot;, dependencies = TRUE)
+</code></pre>
+<p><strong>实测</strong>：本机 R 4.2.2 未装 <code>miscTools</code>，于是</p>
+<pre><code>Error in contrib.url(repos, &quot;source&quot;) :
+  trying to use CRAN without setting a mirror
+</code></pre>
+<p><strong>并且</strong>：对全部 4 个 <code>.r</code> 文件做过检索，<code>miscTools</code> 只出现在这一行 <code>require</code> 里，
+<strong>没有任何地方调用它的函数</strong>。四个实际用到的函数 <code>colSds</code> / <code>colMedians</code> / <code>colMeans</code>
+分别来自 <code>matrixStats</code> 和 <code>base</code>。</p>
+<p><strong>处理</strong>：删除该依赖。重构版只需要 <code>base</code>，连 <code>matrixStats</code> / <code>ggplot2</code> / <code>reshape2</code> 都不再需要。</p>
+<hr />
+<h2 id="_2">二、数值/逻辑缺陷</h2>
+<h3 id="f4">F4 · 文本清洗的正则会把负号吃掉</h3>
+<p><strong>位置</strong>：<code>Correction_Script_spot_scan_TERMITE.r:133</code>、<code>Correction_Script_line_scan_TERMITE.r:127</code></p>
+<pre><code class="language-r">as.numeric(gsub(&quot;[^E0-9.0-9]&quot;, &quot;NA&quot;, x))
+</code></pre>
+<p>字符类 <code>[^E0-9.0-9]</code> 里 <code>0-9</code> 写了两次（无害），但<strong>集合里没有 <code>+</code> 和 <code>-</code></strong>，
+于是负号被替换掉：</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>输入</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-1.5</code></td>
+<td><code>"1.5"</code> → <code>1.5</code>（<strong>符号丢失</strong>）</td>
+</tr>
+<tr>
+<td><code>1,234</code></td>
+<td><code>"1NA234"</code> → <code>NA</code></td>
+</tr>
+<tr>
+<td><code>1.2E+05</code></td>
+<td><code>"1.2E05"</code> → <code>120000</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>示例数据全为正值，所以这个 bug 不会显现；但背景扣除后的中间量是会出现负号的，
+一旦有人把"已扣背景"的数据回灌进来，符号就被静默改掉。</p>
+<p><strong>处理</strong>：保留 <code>0-9 e E . + -</code> 五个类别，其余字符才剔除。</p>
+<hr />
+<h3 id="f5-lrresolution">F5 · 分辨率后缀写死成 <code>"(LR)"</code>，<code>resolution</code> 变量在关键位置被忽略</h3>
+<p><strong>位置</strong>：<code>Correction_Script_line_scan_TERMITE.r:384</code></p>
+<pre><code class="language-r">Kopf &lt;- gsub(&quot;(LR)&quot;,&quot;&quot;,Kopf,fixed=TRUE)     # 写死
+</code></pre>
+<p>而脚本第 90 行读取表头时用的是变量：</p>
+<pre><code class="language-r">Kopf &lt;- gsub(resolution,&quot;&quot;,Kopf,fixed=TRUE)  # 用变量
+</code></pre>
+<p>同一个文件里两种写法。用户把 <code>resolution</code> 改成 <code>"(MR)"</code> 之后，
+前半段正常、后半段失效，样品表头会残留 <code>(MR)</code>，与参考物质表头对不上。</p>
+<p><strong>处理</strong>：统一使用 <code>resolution</code> 参数。同时增加表头一致性检查，不一致时给出警告。</p>
+<hr />
+<h3 id="f13-in-115-in-116">F13 · 参考表里 In-115 被误写成 In-116</h3>
+<p><strong>位置</strong>：<code>TERMITEScriptFolder/AtomGewIsoAbund_NIST.csv</code> 与 <code>Standards_GeoReM.csv</code>
+的表头、以及 <code>In113,In116</code> 两列</p>
+<p><strong>证据</strong>：</p>
+<ul>
+<li>铟天然只有 <strong>In-113（4.29%）</strong> 与 <strong>In-115（95.71%）</strong> 两个稳定同位素，
+  不存在天然 In-116；</li>
+<li>表中 <code>In116</code> 列的丰度恰为 <strong>0.9571</strong>，原子量 114.818 —— 与 In-115 完全一致；</li>
+<li>而 <code>In113</code> 列的丰度 0.0429 也与 In-113 对得上。</li>
+</ul>
+<p><strong>影响</strong>：凡是测了 m/z = 115 的数据，查表直接失败（<code>同位素数据库缺少 In115</code>），
+整批数据跑不动。</p>
+<p><strong>处理</strong>：不动上游数据文件，改用 <code>TERMITEScriptFolder/Isotope_aliases.csv</code>
+把 <code>In115</code> 指向 <code>In116</code> 列，映射理由写在表内注释里。查表时先走别名表，
+仍查不到才退回「借用同元素的其他同位素」并给出警告。</p>
+<hr />
+<h2 id="_3">三、设计缺陷（结果可解释性）</h2>
+<h3 id="f6-lod">F6 · 报出的"参考物质 LoD"在线扫描时漏掉了第一个参考文件</h3>
+<p><strong>位置</strong>：<code>Correction_Script_line_scan_TERMITE.r:173-177</code></p>
+<pre><code class="language-r">w.LoD &lt;- matrix(NA, nrow=(length(Kopf.rows)-length(alleDatenRefs)), ncol=measured.isotopes)
+for (i in (length(Kopf.rows)-(length(Kopf.rows)-length(alleDatenRefs))+1):length(Kopf.rows)) {
+  w.LoD[i - (length(Kopf.rows)-(length(Kopf.rows)-length(alleDatenRefs))), ] &lt;- LoD[[i]][1, ]
+}
+</code></pre>
+<p>设 <code>A = length(Kopf.rows)</code>（线扫描下就是参考文件数 6），
+<code>B = length(alleDatenRefs)</code>。注意 <code>alleDatenRefs</code> 是一个 <strong>list</strong>，
+它的长度是<strong>参考物质的种类数</strong>（示例里只有 NIST612 一种，所以 <code>B = 1</code>），
+而<strong>不是文件数</strong>。</p>
+<p>代入后：<code>w.LoD</code> 只有 <code>A − B = 5</code> 行，循环从 <code>B+1 = 2</code> 开始，<strong>丢掉了第 1 个参考文件</strong>。</p>
+<p>对比点分析脚本 <code>Correction_Script_spot_scan_TERMITE.r:198-201</code>：那里用的是
+<code>length(alleDatenCount)</code>，也就是<strong>样品文件数</strong>，代入后恰好等于"取全部参考文件"，是对的。
+两个脚本在同一个位置上写法不同，其中一个必然是错的。</p>
+<p><strong>影响</strong>（实测，示例数据）：</p>
+<ul>
+<li>线扫描剖面中 <strong>242 个单元格</strong>的 NA 状态因为这项修正而改变。</li>
+<li>也就是 242 个数据点，原本被错误地判为"低于检出限"或"未被判为低于检出限"。</li>
+</ul>
+<p><strong>处理</strong>：默认取全部参考文件；<code>legacy_lod = TRUE</code> 可复刻原行为用于逐位比对。</p>
+<hr />
+<h3 id="f7-lod-0">F7 · LoD 公式在 <code>σ = 0</code> 时的兜底会摧毁量纲</h3>
+<p><strong>位置</strong>：两个 <code>.r</code> 文件都有</p>
+<pre><code class="language-r">ifelse(3*colSds(blank)==0, 1, 3*colSds(blank))
+</code></pre>
+<p>当空白段计数率完全恒定（<code>σ = 0</code>）时，分子被替换成 <code>1</code>，于是</p>
+<pre><code>LoD = 1 / mean(I_j) × C_j^cert
+</code></pre>
+<p>这与"3σ"已经没有任何关系，纯粹是一个无量纲的兜底常数。
+真实数据里空白段完全恒定几乎不可能，但<strong>合成了空白扣除后的数据、或做了内部平均之后</strong>就会遇到。</p>
+<p><strong>处理</strong>：默认保留 <code>0</code>（LoD = 0，即不产生截断）；<code>legacy_lod = TRUE</code> 时复刻原行为。</p>
+<hr />
+<h3 id="f8-x">F8 · 线扫描 x 轴与实际数据行错位</h3>
+<p><strong>位置</strong>：<code>Correction_Script_line_scan_TERMITE.r:368-374</code></p>
+<pre><code class="language-r">sample.time &lt;- as.numeric(as.character(
+  read.table(Daten.linescan, sep=&quot;,&quot;, skip=Line.of.Signal)[1:(last.sampleValue.linescan-first.sampleValue.linescan+1), 1]))
+line.length &lt;- sample.time*laser.speed/1000
+</code></pre>
+<p><code>sample.time</code> 取的是<strong>文件最前面</strong> <code>6748</code> 行的时间，
+而浓度数组对应的却是第 <code>140 : 6887</code> 行（<code>first.sampleValue.linescan = 143</code> 减去偏移）。
+两者相差 139 个 sweep。</p>
+<p>由于时间列是等间隔的，这个错位退化成一个<strong>常数平移</strong>：</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th></th>
+<th>修正前</th>
+<th>修正后</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>起点</td>
+<td>0.00078 mm</td>
+<td>0.00000 mm</td>
+</tr>
+<tr>
+<td>终点</td>
+<td>4.92688 mm</td>
+<td>4.92610 mm</td>
+</tr>
+<tr>
+<td>偏移</td>
+<td></td>
+<td><strong>+0.78 µm</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>示例数据跑 4.93 mm，0.78 µm 只占 0.016%，肉眼看不出来；
+但如果时间列不是等间隔（例如中间改了 dwell time），错位就不再是常数平移，误差会明显放大。</p>
+<p><strong>处理</strong>：按数据行取时间，并以激光开剥第一行归零。<code>legacy_time_axis = TRUE</code> 复刻原行为。</p>
+<hr />
+<h3 id="f9">F9 · 两个入口脚本对"参考物质积分窗口"的默认值不一致</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th><code>TERMITE_spotscan.r</code></th>
+<th><code>TERMITE_linescan.r</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>first.sampleValue</code></td>
+<td>180</td>
+<td><strong>130</strong></td>
+</tr>
+<tr>
+<td><code>last.sampleValue</code></td>
+<td>440</td>
+<td><strong>545</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>这不是 bug，但它非常容易被忽略：<strong>拿点分析的窗口去跑线扫描，RSF 会偏约 0.5%</strong>。
+本项目在调试阶段就真的因此对不上，排查后才定位到。</p>
+<p><strong>处理</strong>：<code>termite_defaults("line")</code> 内置正确的默认值；Shiny 界面切换模式时自动套用。</p>
+<hr />
+<h3 id="f10-x">F10 · <code>X</code> 矩阵在文件之间复用时没有清零</h3>
+<p><strong>位置</strong>：两个脚本都有</p>
+<pre><code class="language-r">X &lt;- matrix(0, nrow=last.sampleValue, ncol=measured.isotopes)
+for (i in seq(along=LISTE)) {
+  X[first.sampleValue:last.sampleValue, ] &lt;- ...
+  Y[[i]] &lt;- as.data.frame(X[first.sampleValue:last.sampleValue, ])
+}
+</code></pre>
+<p>每轮都完整覆盖窗口，所以<strong>当前默认参数下没有实际影响</strong>；
+但只要 <code>first.sampleValue</code> / <code>last.sampleValue</code> 在循环内被改动（例如某些文件行数不足），
+残留的旧数据就会静默混入。属于脆弱写法。</p>
+<p><strong>处理</strong>：重构版每轮重新构造，且有行数越界检查与显式警告。</p>
+<hr />
+<h3 id="f11">F11 · 负值处理在两种模式间不一致</h3>
+<ul>
+<li>点分析：<code>Y[[i]] &lt;- ifelse(X[...] &lt; 0, 0, X[...])</code> —— <strong>截断为 0</strong></li>
+<li>线扫描：<code>Y[[i]] &lt;- as.data.frame(X[...])</code> —— <strong>不截断</strong></li>
+</ul>
+<p>同一份代码库对同一个物理量（背景扣除后的净计数率）采用两种处理，而截断会引入正偏倚。
+两种做法都能自圆其说（点分析要取均值所以截断；线扫描逐点出结果所以保留），
+但<strong>没有在任何文档中说明</strong>。</p>
+<p><strong>处理</strong>：做成显式开关 <code>clip_negative</code>，默认值保持与原脚本一致（点分析开、线扫描关），
+并在界面上提示"截断会在低含量处引入正偏倚"。</p>
+<hr />
+<h3 id="f12">F12 · 若干死代码与误导性注释</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>位置</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Correction_Script_spot_scan_TERMITE.r:118</code></td>
+<td><code>r &lt;- 3</code>，注释"number of referenceglass-meassurements"，全文件未使用</td>
+</tr>
+<tr>
+<td><code>Correction_Script_spot_scan_TERMITE.r:315-323</code></td>
+<td><code>if(machine=="Element2"){...} else {...}</code> 两个分支<strong>完全相同</strong></td>
+</tr>
+<tr>
+<td><code>Correction_Script_line_scan_TERMITE.r:296</code></td>
+<td><code>#if(machine=="Element2") {</code> 注释掉的分支</td>
+</tr>
+<tr>
+<td><code>TERMITE_linescan.r:97</code></td>
+<td><code>sampleValues &lt;- (last.sampleValue-first.sampleValue)+1   # ???</code></td>
+</tr>
+<tr>
+<td>线扫描脚本</td>
+<td><code>detach("package:matrixStats")</code> 之后还继续用 <code>colMedians</code>（见 F1）</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>处理</strong>：重构版删除死代码；等价分支合并。</p>
+<hr />
+<h2 id="_4">四、修改后的对照</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>原脚本</th>
+<th>重构版</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>外部依赖</td>
+<td><code>miscTools</code>(未用) + <code>matrixStats</code> + <code>ggplot2</code> + <code>reshape2</code></td>
+<td><strong>无</strong>（只用 base R）</td>
+</tr>
+<tr>
+<td>线扫描可用性</td>
+<td>崩溃</td>
+<td>正常</td>
+</tr>
+<tr>
+<td>点分析输出</td>
+<td>正常</td>
+<td>逐位一致</td>
+</tr>
+<tr>
+<td>线扫描输出</td>
+<td>崩溃（修补后逐位一致）</td>
+<td>逐位一致（复刻模式）</td>
+</tr>
+<tr>
+<td>正负号</td>
+<td>静默丢弃</td>
+<td>保留</td>
+</tr>
+<tr>
+<td>分辨率后缀</td>
+<td>后半段写死 <code>(LR)</code></td>
+<td>统一使用参数</td>
+</tr>
+<tr>
+<td><code>σ=0</code> 的 LoD</td>
+<td>替换为常数 1</td>
+<td>保留 0（可切换）</td>
+</tr>
+<tr>
+<td>线扫描 LoD 文件集</td>
+<td>漏掉首个参考文件</td>
+<td>全部参考文件（可切换）</td>
+</tr>
+<tr>
+<td>线扫描 x 轴</td>
+<td>错位 0.78 µm</td>
+<td>按数据行对齐（可切换）</td>
+</tr>
+<tr>
+<td>参数文档</td>
+<td>分散在 4 个文件的注释里</td>
+<td>集中在 <code>docs/PRINCIPLES.md</code></td>
+</tr>
+<tr>
+<td>一致性验证</td>
+<td>无</td>
+<td><code>tests/test-parity.R</code>，逐列比对</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="_5">五、一个诚实的提醒</h2>
+<p>这些修改<strong>没有改变任何一条物理/化学假设</strong>。TERMITE 的定量能力仍然受限于它本来的设计：</p>
+<ul>
+<li>依赖内标元素在样品中均匀分布且含量已知；</li>
+<li>RSF 由参考物质给出，<strong>跨基体不可转移</strong>；</li>
+<li>LoD 借用样品自身的灵敏度，不是严格的检出限定义。</li>
+</ul>
+<p>换句话说：<strong>修好脚本不等于结果就可信</strong>。定量结果的可靠性取决于样品与参考物质的匹配程度，
+这一点请自行评估，不要因为"测试全绿"就放松对数据的判断。</p>
+    </article>
+  </div>
+
+  <footer>
+    TERMITE 交互式 LA-ICP-MS 微量元素数据归算 ·
+    <a href="index.html">返回项目主页</a> ·
+    <a href="https://github.com/chengkaide/TERMITE">GitHub 仓库</a>
+  </footer>
+</div>
+</body>
+</html>

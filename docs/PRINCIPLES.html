@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TERMITE 归算原理 · TERMITE 文档</title>
+<style>
+  :root{
+    --ink:#26251F; --ink2:#5F5E5A; --ink3:#8A8880;
+    --line:#D8D6CC; --bg:#FFFFFF; --panel:#F8F7F4; --panel2:#EFEEE8;
+    --pur:#4C43AE; --purbg:#EEEDFE; --purline:#AFA9EC;
+    --tea:#0E6650; --teabg:#E3F5EF; --tealine:#9FE1CB;
+    --amb:#7D4A0A; --ambbg:#FAEEDA; --ambline:#FAC775;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+       font-size:15.5px;line-height:1.8;font-variant-numeric:tabular-nums}
+  a{color:var(--pur);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 30px 90px}
+
+  /* ---------- sticky nav ---------- */
+  .nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.92);
+       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+       border-bottom:1px solid var(--line)}
+  .nav .inner{max-width:1040px;margin:0 auto;padding:0 30px;display:flex;
+       align-items:center;gap:16px;height:56px}
+  .nav .brand{font-weight:700;font-size:15.5px;color:var(--ink);white-space:nowrap;
+       letter-spacing:-.2px}
+  .nav .brand i{color:var(--pur);font-style:normal}
+  .nav .links{margin-left:auto;display:flex;gap:2px;overflow-x:auto;white-space:nowrap}
+  .nav .links a{color:var(--ink2);font-size:13.5px;padding:6px 11px;border-radius:7px}
+  .nav .links a:hover{background:var(--panel);text-decoration:none;color:var(--ink)}
+  .nav .links a.on{background:var(--purbg);color:var(--pur);font-weight:600}
+  @media(max-width:720px){.nav .links{display:none}}
+
+  /* ---------- 文档头 ---------- */
+  .dochead{margin:38px 0 30px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+  .dochead .kicker{font-size:12.5px;letter-spacing:.14em;color:var(--pur);
+       font-weight:700;margin:0 0 12px}
+  .dochead h1{font-size:32px;font-weight:700;margin:0 0 12px;line-height:1.3;
+       letter-spacing:-.4px}
+  .dochead .sub{color:var(--ink2);font-size:16px;margin:0 0 16px}
+  .dochead .meta{font-size:12.5px;color:var(--ink3)}
+  .dochead .meta code{font-family:Consolas,Menlo,monospace;background:var(--panel);
+       padding:1px 6px;border-radius:4px}
+
+  /* ---------- 布局：侧边目录 + 正文 ---------- */
+  .layout{display:grid;grid-template-columns:228px 1fr;gap:40px;align-items:start}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;gap:0}}
+  .toc{position:sticky;top:76px;font-size:13.5px;line-height:1.65;
+       max-height:calc(100vh - 110px);overflow-y:auto}
+  @media(max-width:900px){.toc{position:static;max-height:none;margin-bottom:26px;
+       padding:16px 18px;background:var(--panel);border-radius:12px}}
+  .toc .t{font-size:11.5px;letter-spacing:.12em;color:var(--ink3);font-weight:700;
+       margin-bottom:10px}
+  .toc ul{list-style:none;margin:0;padding:0}
+  .toc li{margin:0 0 5px}
+  .toc a{color:var(--ink2);display:block;padding:1px 0}
+  .toc a:hover{color:var(--pur);text-decoration:none}
+  .toc ul ul{margin:3px 0 3px 12px;border-left:1px solid var(--line);padding-left:10px}
+  .toc ul ul a{font-size:12.5px;color:var(--ink3)}
+  .toc ul ul a:hover{color:var(--pur)}
+
+  /* ---------- 正文 ---------- */
+  .mbody{min-width:0}
+  .mbody h2{font-size:23px;font-weight:700;margin:44px 0 16px;padding-top:20px;
+       border-top:2px solid var(--line);letter-spacing:-.2px;position:relative;
+       scroll-margin-top:70px}
+  .mbody h2:first-child{border-top:0;padding-top:0;margin-top:0}
+  .mbody h2::before{content:"";position:absolute;top:-2px;left:0;width:56px;height:2px;
+       background:var(--pur)}
+  .mbody h3{font-size:17.5px;font-weight:600;margin:30px 0 10px;color:var(--ink);
+       scroll-margin-top:70px}
+  .mbody h4{font-size:15.5px;font-weight:600;margin:22px 0 8px;color:var(--ink)}
+  .mbody p{margin:0 0 14px;color:var(--ink2)}
+  .mbody strong{color:var(--ink);font-weight:700}
+  .mbody ul,.mbody ol{margin:0 0 14px;padding-left:24px;color:var(--ink2)}
+  .mbody li{margin:0 0 6px}
+  .mbody hr{border:0;border-top:1px dashed var(--line);margin:34px 0}
+  .mbody blockquote{margin:0 0 16px;padding:12px 20px;background:var(--panel);
+       border-left:3px solid var(--purline);border-radius:0 10px 10px 0;color:var(--ink2)}
+  .mbody blockquote p{margin:0;color:var(--ink2)}
+
+  /* 行内代码 */
+  .mbody code{font-family:Consolas,Menlo,monospace;font-size:13px;
+       background:var(--panel);padding:1.5px 6px;border-radius:4px;color:#2A2470}
+  .mbody pre code,.mbody .cite-block code{background:none;color:inherit;padding:0}
+  /* 代码块 */
+  .mbody pre{background:#2A2A33;color:#EAEAF2;border-radius:11px;padding:16px 20px;
+       overflow-x:auto;margin:0 0 16px;line-height:1.7}
+  .mbody pre code{font-family:Consolas,Menlo,monospace;font-size:13.2px}
+
+  /* 表格（宽表可横向滚动） */
+  .tw{overflow-x:auto;margin:0 0 16px;border:1px solid var(--line);border-radius:10px}
+  .mbody table{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
+  .mbody th,.mbody td{border-bottom:1px solid var(--line);padding:9px 14px;
+       text-align:left;vertical-align:top}
+  .mbody th{background:var(--panel2);font-weight:700;color:var(--ink);white-space:nowrap}
+  .mbody tbody tr:last-child td{border-bottom:0}
+  .mbody td code{font-size:12.5px}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
+       color:var(--ink3);font-size:13.5px;line-height:1.8}
+  footer a{color:var(--ink2)}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="inner">
+  <div class="brand">TERMITE <i>·</i> 文档</div>
+  <div class="links">
+    <a href="index.html">概览</a>
+    <a href="HANDBOOK.html">入门手册</a>
+    <a href="PRINCIPLES.html" class="on">归算原理</a>
+    <a href="IMPORT.html">数据导入</a>
+    <a href="FORMULA_CAL.html">无内标校准</a>
+    <a href="FIXES.html">问题清单</a>
+    <a href="ORIGINAL_README.html">原始说明</a>
+  </div>
+</div></nav>
+
+<div class="wrap">
+  <div class="dochead">
+    <div class="kicker">TERMITE 文档</div>
+    <h1>TERMITE 归算原理</h1>
+    <p class="sub">七步链路每一步在算什么、哪里容易错</p>
+    <div class="meta">由 <code>docs/PRINCIPLES.md</code> 自动生成 ·
+      <a href="PRINCIPLES.md">查看 Markdown 源文件</a></div>
+  </div>
+
+  <div class="layout">
+    <aside class="toc">
+      <div class="t">目录</div>
+      <ul><ul><li><a href="#0">0. 一句话概括</a></li><li><a href="#1">1. 符号表</a></li><li><a href="#2">2. 数据读取与行号约定</a></li><li><a href="#3-gas-blank">3. 背景扣除（gas blank）</a></li><li><a href="#4">4. 内标归一</a></li><li><a href="#5">5. 离群剔除</a></li><li><a href="#6">6. 同位素换算：从"计数率比"到"质量比"</a></li><li><a href="#7-rsf">7. 参考物质定标：RSF</a></li><li><a href="#8-lod">8. 检出限 LoD</a><ul><li><a href="#_1">关于内标：一段补充</a></li></ul></li><li><a href="#9">9. 相对标准偏差与可疑点</a></li><li><a href="#10">10. 线扫描的两个特有问题</a></li><li><a href="#11">11. 容易踩的坑：清单</a></li><li><a href="#12">12. 与本仓库其它文件的关系</a></li></ul></ul>
+    </aside>
+    <article class="mbody">
+
+<p>这份文档说明 <code>R/termite_core.R</code> 每一步在算什么、为什么这么算、以及哪里容易出错。
+公式与代码一一对应，可以直接对照阅读。</p>
+<hr />
+<h2 id="0">0. 一句话概括</h2>
+<p>TERMITE 做的事情是：</p>
+<blockquote>
+<p>把 LA-ICP-MS 测到的<strong>同位素计数率（cps）</strong>，经过「扣背景 → 内标归一 → 同位素换算 → 用参考物质定标」，
+换算成以 <strong>µg/g</strong> 为单位的元素含量，并按检出限和离群判据做截断。</p>
+</blockquote>
+<p>整条链路没有任何"绝对定量"的环节——它不计算剥蚀量、传输效率或电离效率，
+而是<strong>把所有这些未知量统统打包进一个由参考物质测出来的相对灵敏度因子 RSF 里</strong>。
+理解这一点，后面所有公式都会变得很自然。</p>
+<hr />
+<h2 id="1">1. 符号表</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>符号</th>
+<th>含义</th>
+<th>单位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>j</code></td>
+<td>待测同位素（如 Ca43、U238）</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>IS</code></td>
+<td>内标同位素（如 Ca43），必须有已知含量</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>I_j</code></td>
+<td>扣背景后的净计数率</td>
+<td>cps</td>
+</tr>
+<tr>
+<td><code>A_j</code></td>
+<td>同位素丰度（<code>AtomGewIsoAbund_NIST.csv</code> 第 2 行）</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>M_j</code></td>
+<td>同位素原子量（同表第 1 行）</td>
+<td>g/mol</td>
+</tr>
+<tr>
+<td><code>C_IS</code></td>
+<td>内标元素含量：样品用输入值，参考物质用推荐值</td>
+<td>µg/g</td>
+</tr>
+<tr>
+<td><code>C_j^cert</code></td>
+<td>参考物质中元素 j 的推荐含量（<code>Standards_GeoReM.csv</code>）</td>
+<td>µg/g</td>
+</tr>
+<tr>
+<td><code>RSF_j</code></td>
+<td>相对灵敏度因子</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>σ_j(blank)</code></td>
+<td>空白区计数率的标准差（n−1）</td>
+<td>cps</td>
+</tr>
+<tr>
+<td><code>v</code></td>
+<td>激光扫描速率</td>
+<td>µm/s</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="2">2. 数据读取与行号约定</h2>
+<p>原始文件形如：</p>
+<pre><code>line 1 : D:\Daten\2015\10_Oktober\151019a.B\019.D      ← 采集信息
+line 2 : Intensity Vs Time,CPS
+line 3 : Time [Sec],Mg25,Al27,P31,Ca43,...              ← 同位素表头
+line 4 : 0.156,100.00,400.01,3300.51,100.00,...         ← 数据起点
+</code></pre>
+<p>界面上填的 <code>header_line = 3</code>、<code>signal_line = 4</code>、<code>first_blank = 5</code> …… 全部是<strong>文件的真实行号（从 1 计）</strong>。
+内核在内部换算成矩阵行号：</p>
+<pre><code>矩阵行号 = 真实行号 − (signal_line − 1)
+</code></pre>
+<blockquote>
+<p><strong>原脚本的坑</strong>：它把 <code>Line.of.Header</code> / <code>Line.of.Signal</code> 各自先减 1 再到处用，
+<code>Line.of.Signal</code> 既当"跳过的行数"又当"要减掉的偏移量"，读者极容易看错。
+本内核把两件事分开：<code>skip = signal_line - 1</code>，偏移量单独减。</p>
+</blockquote>
+<p><strong>分隔符</strong>由仪器决定：Agilent（四极杆）导出用逗号，Element2（SF-ICP-MS）导出用制表符，
+且 Element2 的表头带分辨率后缀（如 <code>Ca43(LR)</code>），需要用 <code>resolution</code> 参数剥掉。</p>
+<p>数据列从第 2 列开始取，共 <code>n_iso</code> 列；第 1 列是时间。</p>
+<hr />
+<h2 id="3-gas-blank">3. 背景扣除（gas blank）</h2>
+<p>选一段<strong>没有剥蚀</strong>的行（<code>first_blank : last_blank</code>），对每个同位素取中位数（或均值）：</p>
+<pre><code>bg_j = median( I_j[first_blank : last_blank] )
+</code></pre>
+<p>再从信号区的每一行里逐列减掉：</p>
+<pre><code>I_j(t) = raw_j(t) − bg_j         t ∈ [first_signal, last_signal]
+</code></pre>
+<p><strong>为什么用中位数</strong>：空白段的计数率分布右偏（偶发的高计数脉冲），中位数比均值稳健。
+示例数据里两者差别不大，但对真实数据中位数明显更可靠。</p>
+<p><strong>负值怎么办</strong>：扣完背景后必然出现负值（纯噪声）。原脚本在点分析里把它们截断为 0，
+在线扫描里不做处理。截断会带来<strong>正偏倚</strong>——低含量样品被系统性抬高。
+所以本内核把它做成显式开关 <code>clip_negative</code>，默认保持与原脚本一致，但你可以关掉。</p>
+<hr />
+<h2 id="4">4. 内标归一</h2>
+<pre><code>R_j = I_j / I_IS
+</code></pre>
+<p>这一步消掉的是<strong>信号强度的整体漂移</strong>：激光能量波动、传输效率变化、基质剥蚀量差异，
+它们对同一时刻所有同位素的影响近似相同，取比值就抵消了。</p>
+<p>内标元素必须满足两个条件：<strong>样品中含量已知</strong>、<strong>在样品中均匀分布</strong>。
+示例用 <code>Ca43</code>（碳酸盐样品的基体元素）。岩石类样品常用 <code>Si29</code> 或 <code>Ca43</code>。</p>
+<blockquote>
+<p>⚠️ <code>column_IS</code> 填的是<strong>原始文件里的列号（含时间列）</strong>。
+示例文件里 Ca43 是第 5 列，所以填 5 —— 不是 4。</p>
+</blockquote>
+<hr />
+<h2 id="5">5. 离群剔除</h2>
+<p>对每个文件、每个同位素，在 <code>R_j</code> 序列上：</p>
+<pre><code>M_j = median(R_j)
+上界 = M_j × (1 + m)
+下界 = M_j × (1 − m)
+   窗口外的点 → NA            （m 默认 30%）
+</code></pre>
+<p>然后对剩下的点取均值，得到该文件的代表性比值。</p>
+<p><strong>这一步的性质要说清楚</strong>：</p>
+<ul>
+<li>它是<strong>围绕中位数的固定百分比窗口</strong>，不是 MAD、不是 3σ。对强偏态数据不稳健。</li>
+<li>如果 <code>M_j = 0</code>（该同位素在样品中基本测不到，中位数落在 0 上），
+  则下界 = 上界 = 0，<strong>所有非零值都会被剔除</strong>，结果变成 <code>NA</code>。
+  示例数据里 La139、Ce140、Y89 大面积输出 NA，就是这个原因，不是计算失败。</li>
+<li>想保留全部数据，把「离群检验」关掉即可。</li>
+</ul>
+<hr />
+<h2 id="6">6. 同位素换算：从"计数率比"到"质量比"</h2>
+<p>测得的是<strong>同位素</strong>的计数率，想得到的是<strong>元素</strong>的质量比。两步修正：</p>
+<p><strong>① 丰度修正</strong>。质谱计数的原子数与丰度成正比，所以元素 j 的原子数流 ∝ <code>I_j / A_j</code>。</p>
+<p><strong>② 原子量修正</strong>。质量流 ∝ 原子数流 × 原子量，所以 <code>m_j ∝ (I_j / A_j) · M_j</code>。</p>
+<p>把两者相除：</p>
+<pre><code>m_j / m_IS = (I_j / A_j · M_j) / (I_IS / A_IS · M_IS)
+           = R_j · (A_IS / A_j) · (M_j / M_IS)
+</code></pre>
+<p>记换算因子</p>
+<pre><code>Iso_j = (A_IS / A_j) · (M_j / M_IS)
+</code></pre>
+<p>代码里就是 <code>iso_factor</code>。对内部标准元素自己，<code>Iso_IS = 1</code>。</p>
+<hr />
+<h2 id="7-rsf">7. 参考物质定标：RSF</h2>
+<p>到第 6 步为止，我们只得到了<strong>相对</strong>于内标的质量比。
+再乘上内标含量 <code>C_IS</code>，就得到一个"未校正浓度"：</p>
+<pre><code>C_j^uncorr = Iso_j · R_j · C_IS
+</code></pre>
+<p>它成立的前提是：<strong>仪器对待测元素 j 和内标元素 IS 的灵敏度完全相同</strong>。
+这个假设不成立（重元素灵敏度低、不同元素电离能不同），于是用参考物质来量它。</p>
+<p>对每个参考物质文件：</p>
+<pre><code>RSF_j = C_j^uncorr(ref) / C_j^cert(ref)
+</code></pre>
+<p><code>RSF_j &gt; 1</code> 表示仪器对 j 的响应比内标"高"（或者说，按未校正公式算出来的浓度偏高），
+所以最终要把未校正浓度<strong>除</strong>以它：</p>
+<pre><code>C_j = C_j^uncorr / RSF_j ,        RSF_j = mean over all reference files
+</code></pre>
+<p><strong>关于 RSF 的三点注意</strong>：</p>
+<ol>
+<li>对内部标准元素本身 <code>RSF = 1</code>（因为 <code>C_IS^uncorr = C_IS^cert = C_IS</code>）。
+   所以输出表里内标元素的浓度<strong>恒等于你输入的 <code>C_IS</code></strong>，它不是测出来的，是<strong>输入值</strong>。
+   示例里 Ca 永远显示 400003.81，就是这个道理，不要当成分析结果去解读。</li>
+<li>RSF 把「剥蚀量 × 传输效率 × 电离效率」全部吸收了。因此<strong>样品与参考物质的基体必须接近</strong>，
+   否则 RSF 不可转移（这是 LA-ICP-MS 定量的根本限制）。</li>
+<li>应用的「校准 RSF」页给出了每种参考物质各自的<strong>回收率</strong>（实测 RSF ÷ 全局均值）。
+   如果同一参考物质的多个文件之间回收率漂移很大，说明信号不稳定或样品室有污染，
+   此时全局 RSF 的可靠性要打折。</li>
+</ol>
+<hr />
+<h2 id="8-lod">8. 检出限 LoD</h2>
+<p>TERMITE 用的公式是：</p>
+<pre><code>LoD_j = 3 σ_j(blank) / mean(I_j^sample) × C_j^cert(RefMat1)
+</code></pre>
+<p>读法：<strong>把空白区计数率的 3σ，用当前样品自身的灵敏度折算成浓度</strong>。
+量纲上 <code>cps/cps × µg/g = µg/g</code>，没问题。</p>
+<p>但有两点需要明确：</p>
+<ul>
+<li>分母用的是<strong>当前样品的净计数率</strong>，而不是参考物质定标出来的灵敏度。
+  严谨的写法应该是
+  <code>LoD_j = 3σ_j(blank) · C_j^cert / I_j^cert</code>（用参考物质定义灵敏度），
+  TERMITE 相当于假设"样品与参考物质灵敏度相同"。
+  对含量与参考物质差很远的样品，这个 LoD 会有偏差。
+  把它理解为<strong>该样品自身的相对检出限</strong>更合适。</li>
+<li>当 <code>3σ_j(blank) = 0</code> 时（空白段计数完全恒定），原脚本会把分子替换成 <code>1</code>，
+  于是 <code>LoD = 1 / mean(I_j) × C_j^cert</code> —— 这个值与标准差无关，量纲上的"3σ"含义完全丢失。
+  属于兜底的补丁，本内核在「复刻模式」下同样复刻它，但默认模式下会保留 0。</li>
+</ul>
+<p><strong>LoD 的汇总</strong>：对每个参考物质文件各算一次 LoD，然后取<strong>中位数</strong>作为最终 LoD，
+用于把结果表里低于 LoD 的单元格置为 <code>NA</code>。</p>
+<blockquote>
+<p><strong>原脚本的坑</strong>：线扫描脚本在选取"哪些文件的 LoD 参与中位数"时，
+用的是参考物质的<strong>种类数</strong>而不是<strong>文件数</strong>，导致第一个参考文件被漏掉
+（示例数据中剖面有 242 个单元格因此改变了 NA 状态）。
+本内核默认取全部参考文件，<code>legacy_lod = TRUE</code> 可复刻原行为。</p>
+</blockquote>
+<hr />
+<h3 id="_1">关于内标：一段补充</h3>
+<p>第 4 节的推导假设「内标元素在样品中含量已知且分布均匀」。同一批样品基体不同时，
+这个假设会破。判断办法：看上面第 4 节的推导反过来用 ——
+<strong>哪个元素在剥蚀段信号最强，样品大概就以它为主量</strong>。
+<code>tools/run_termite.R</code> 与界面上的「计算主量同位素」都是干这个的。</p>
+<p>若一批样品分成几类基体，要么分批跑，要么接受某一类的结果不可用。
+把它硬套一个内标，得到的是数字，不是含量。</p>
+<p><strong>内标的替代方案</strong>：有些矿物（氟磷灰石、云母）没有可靠的内标，或不想先做 EPMA，
+可以改用<strong>矿物化学式归一化</strong>（AYCF 家族）——用矿物结构式（a.p.f.u. / 电荷平衡）替代内标，
+省去 EPMA。见 <a href="FORMULA_CAL.html">FORMULA_CAL.html</a>，入口是 <code>termite_run_formula()</code>。</p>
+<p>数据导入的细节（支持哪些仪器格式、别名表怎么配、参考物质名称怎么对）
+见 <a href="IMPORT.html">IMPORT.html</a>。</p>
+<hr />
+<h2 id="9">9. 相对标准偏差与可疑点</h2>
+<p>对每个样品点：</p>
+<pre><code>RSD_j = sd(R_j) / mean(R_j)          （用未做离群剔除的 R_j 序列）
+</code></pre>
+<p>若某点的 <code>RSD_j</code> 高于全部点的均值，就在结果图里标红，提示该点可能<strong>不均匀</strong>（击穿到包裹体、
+表面不平、剥蚀到裂隙等）。</p>
+<hr />
+<h2 id="10">10. 线扫描的两个特有问题</h2>
+<p><strong>① x 轴</strong>。距离由时间换算：</p>
+<pre><code>distance(t) = (t − t_0) × v / 1000        [s]·[µm/s]/1000 → [mm]
+</code></pre>
+<p><code>t</code> 取自文件第 1 列，<code>t_0</code> 是<strong>激光开剥第一行</strong>的时间。
+原脚本把 <code>t</code> 取成文件最前面 N 行的时间，与实际数据行错位，整条曲线平移了 0.78 µm。
+本内核默认按数据行对齐（<code>legacy_time_axis = TRUE</code> 可复刻原行为）。</p>
+<p><strong>② 参考物质的积分窗口与样品不同</strong>。两个入口脚本的默认值就<strong>不一样</strong>：</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>点分析</th>
+<th>线扫描（参考物质）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>空白区</td>
+<td>5 – 124</td>
+<td>5 – 124</td>
+</tr>
+<tr>
+<td>信号区</td>
+<td>180 – 440</td>
+<td><strong>130 – 545</strong></td>
+</tr>
+<tr>
+<td>样品信号区</td>
+<td>—</td>
+<td>143 – 6890</td>
+</tr>
+</tbody>
+</table></div>
+<p>拿点分析的 180–440 去跑线扫描的参考物质，RSF 会偏 0.5% 左右。
+界面上切换模式时会自动套用对应的默认值。</p>
+<p><strong>③ 负值</strong>。线扫描是对<strong>每一行</strong>出结果，不取均值，所以背景噪声导致的负值会让剖面出现
+负的浓度。原脚本此处不截断（截断与否在界面上可选）。</p>
+<hr />
+<h2 id="11">11. 容易踩的坑：清单</h2>
+<ol>
+<li><strong><code>column_IS</code> 是原始文件列号（含时间列）</strong>，不是同位素序列的第几个。</li>
+<li><strong>内标元素本身的输出浓度等于输入值</strong>，不要当结果解读。</li>
+<li><strong><code>M_j</code> 用的是"同位素原子量"</strong>，不是元素原子量。表里 <code>Mg25</code> 的原子量是 24.304。</li>
+<li><strong>积分窗口是文件真实行号</strong>，改一个数就会改变整条链路的输出。</li>
+<li><strong>离群窗口是固定百分比</strong>，中位数为 0 时会把所有非零点剔掉 → 输出 NA。</li>
+<li><strong>RSF 不可跨基体转移</strong>：样品基体与参考物质差太远时，结果不可信。</li>
+<li><strong>LoD 用的是样品自身的灵敏度</strong>，把它当"绝对检出限"解读要谨慎。</li>
+<li><strong>负值截断会引入正偏倚</strong>，低含量样品尤其明显。</li>
+</ol>
+<hr />
+<h2 id="12">12. 与本仓库其它文件的关系</h2>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>文件</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>R/termite_core.R</code></td>
+<td>本文所有公式的实现，纯 base R</td>
+</tr>
+<tr>
+<td><code>R/termite_verify.R</code></td>
+<td>与原始脚本输出的一致性自检</td>
+</tr>
+<tr>
+<td><code>docs/FIXES.md</code></td>
+<td>原始脚本的问题清单与修改说明</td>
+</tr>
+<tr>
+<td><code>tests/test-parity.R</code></td>
+<td>命令行一致性测试</td>
+</tr>
+<tr>
+<td><code>tests/reference/</code></td>
+<td>原始脚本跑出的基准输出</td>
+</tr>
+</tbody>
+</table></div>
+    </article>
+  </div>
+
+  <footer>
+    TERMITE 交互式 LA-ICP-MS 微量元素数据归算 ·
+    <a href="index.html">返回项目主页</a> ·
+    <a href="https://github.com/chengkaide/TERMITE">GitHub 仓库</a>
+  </footer>
+</div>
+</body>
+</html>
