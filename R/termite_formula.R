@@ -1,0 +1,336 @@
+# =============================================================================
+#  TERMITE formula —— 无内标「矿物化学式归一化」校准（AYCF 家族）
+#  ---------------------------------------------------------------------------
+#  背景：传统 TERMITE（termite_run）用「内标元素」归一化剥蚀产率，需要先用
+#  EPMA 测出内标含量 C_IS。文献提出另一种校准策略：把测得的各元素按「矿物
+#  结构式」归一化，用矿物化学式（a.p.f.u. / 电荷平衡）替代内标，省去 EPMA。
+#
+#    · Liu et al. (2008) Chem. Geol. 257:34-43 —— AYCF，无水矿物归一化到 100 wt%
+#    · Zhang et al. (2022) JAAS 37:1793 —— 氟磷灰石，结构式补 P 与 F
+#    · Zhang et al. (2023) JAAS 38:1387 —— 云母，结构式补 K 与 OH(F)
+#
+#  核心思想（一段话）：
+#     cps → x灵敏度 lambda → 未归一化浓度 C' → 转摩尔 → 按矿物结构式归一化（电荷 /
+#     位点 apfu）求「化学式因子」→ 测不准的元素（P/F/K/OH）用结构式约束理论补
+#     → 按总分子量换算成 µg/g。全程不需要内标元素。
+#
+#  本模块是**独立的校准策略**，不修改 termite_run() 的数值路径；
+#  默认仍走内标法，本模块由 termite_run_formula() 单独调用。
+#
+#  零外部依赖（纯 base R）。
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# 0. 原子量常数（IUPAC）与默认价态表
+# -----------------------------------------------------------------------------
+
+.M_O  <- 15.999
+.M_F  <- 18.9984
+.M_H  <- 1.00784
+.M_P  <- 30.973761998
+.M_K  <- 39.0983
+
+#' 默认价态表：元素 → 价态（决定氧化物形式）
+#'
+#' 这些是地学常用氧化物价态（Fe→FeO、Mn→MnO 用二价；W→WO3、Mo→MoO3 用六价）。
+#' 个别矿物可覆盖（见 mineral_formulas.csv 的 valence 列），
+#' 价态直接决定「电荷归一化」里的电荷贡献，也等价于「元素→氧化物」换算
+#' （l_i = 1 + (z_i/2)·M_O/M_i）。
+.termite_valence_default <- c(
+  "Li" = 1, "Be" = 2, "B" = 3, "Na" = 1, "Mg" = 2, "Al" = 3, "Si" = 4, "P" = 5,
+  "K" = 1, "Ca" = 2, "Sc" = 3, "Ti" = 4, "V" = 3, "Cr" = 3, "Mn" = 2, "Fe" = 2,
+  "Co" = 2, "Ni" = 2, "Cu" = 2, "Zn" = 2, "Ga" = 3, "Ge" = 4, "As" = 5, "Se" = 4,
+  "Rb" = 1, "Sr" = 2, "Y" = 3, "Zr" = 4, "Nb" = 5, "Mo" = 6, "In" = 3, "Sn" = 4,
+  "Sb" = 5, "Cs" = 1, "Ba" = 2,
+  "La" = 3, "Ce" = 3, "Pr" = 3, "Nd" = 3, "Sm" = 3, "Eu" = 3, "Gd" = 3,
+  "Tb" = 3, "Dy" = 3, "Ho" = 3, "Er" = 3, "Tm" = 3, "Yb" = 3, "Lu" = 3,
+  "Hf" = 4, "Ta" = 5, "W" = 6, "Re" = 7, "Pb" = 2, "Th" = 4, "U" = 4
+)
+
+#' 矿物结构式参数（内置，mineral_formulas.csv 可覆盖/扩展）
+#'
+#' 每行一个矿物：mode 决定归算走哪条路径，n_O/n_F/n_OH 决定阴离子框架，
+#' excluded 是 ICP-MS 测不准、需要按结构式理论补的元素。
+.termite_mineral_builtin <- function() {
+  data.frame(
+    name      = c("scheelite",   "cassiterite", "zircon", "fluorapatite", "muscovite", "biotite"),
+    formula   = c("CaWO4",       "SnO2",        "ZrSiO4", "Ca5(PO4)3F",  "KAl2(AlSi3)O10(OH,F)2", "K(Mg,Fe)3(AlSi3)O10(OH,F)2"),
+    mode      = c("anhydrous",   "anhydrous",   "anhydrous", "apatite", "mica", "mica"),
+    n_O       = c(4,             2,             4,         12,           10,      10),
+    n_F       = c(0,             0,             0,         1,            0,       0),
+    n_OH      = c(0,             0,             0,         0,            2,       2),
+    excluded  = c("",            "",            "",        "P",          "K",     "K"),
+    note      = c("白钨矿",      "锡石",        "锆石",    "氟磷灰石",   "白云母", "黑云母"),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' 读取矿物结构式参数：优先 mineral_formulas.csv，否则用内置表
+termite_mineral_defs <- function(cfg = NULL, path = "TERMITEScriptFolder/mineral_formulas.csv") {
+  p <- if (is.null(cfg)) NA_character_ else termite_resource(path, cfg)
+  if (!is.na(p) && file.exists(p)) {
+    d <- utils::read.csv(p, stringsAsFactors = FALSE, check.names = FALSE,
+                         comment.char = "#", strip.white = TRUE,
+                         fileEncoding = "UTF-8")
+    return(d)
+  }
+  .termite_mineral_builtin()
+}
+
+#' 取一个矿物的参数（不存在则报错，列出可用矿物）
+termite_mineral_param <- function(mineral, defs = NULL) {
+  if (is.null(defs)) defs <- .termite_mineral_builtin()
+  i <- match(tolower(mineral), tolower(defs$name))
+  if (is.na(i))
+    stop("未知矿物 '", mineral, "'。可用：", paste(defs$name, collapse = ", "))
+  defs[i, ]
+}
+
+
+# -----------------------------------------------------------------------------
+# 1. 灵敏度 lambda：多参考物质回归（lambda_i = sum C_i^rm / sum cps_i^rm）
+# -----------------------------------------------------------------------------
+
+#' 计算各元素的灵敏度 lambda（µg/g per cps）
+#'
+#' @param cps_list  list，每个元素是一个参考物质文件的净计数率矩阵（列=同位素）
+#'                  更常用的调用方式见 termite_run_formula()，这里接受
+#'                  list(每文件一个命名向量 cps) 与 conc(每文件一个命名向量 C)
+#' @param conc_list list，与 cps_list 同构，参考物质推荐值（元素浓度 µg/g）
+#' @return 命名向量 lambda（同位素名）
+termite_sensitivity <- function(cps_list, conc_list) {
+  iso <- names(cps_list[[1]])
+  lam <- numeric(length(iso)); names(lam) <- iso
+  for (j in iso) {
+    cs <- vapply(cps_list, function(v) as.numeric(v[[j]]), 1.0)
+    cc <- vapply(conc_list, function(v) as.numeric(v[[j]]), 1.0)
+    ok <- is.finite(cs) & is.finite(cc) & cs > 0
+    lam[j] <- if (any(ok)) sum(cc[ok]) / sum(cs[ok]) else NA_real_
+  }
+  lam
+}
+
+
+# -----------------------------------------------------------------------------
+# 2. 归算核心：三种矿物模式
+# -----------------------------------------------------------------------------
+
+#' 无水矿物：电荷归一化（等价于「元素氧化物归一化到 100 wt%」的 AYCF）
+#'
+#' 阳离子总电荷 = 2·n_O（全部阴离子都是 O2-）。
+#' 白钨矿 CaWO4：n_O=4 → 电荷目标 8；锡石 SnO2：n_O=2 → 4；锆石 ZrSiO4：n_O=4 → 8。
+termite_formula_anhydrous <- function(cps, lambda, M, valence, n_O) {
+  keep <- names(cps)
+  Cprime <- cps * lambda[keep]                       # 未归一化元素浓度（µg/g 量级）
+  n  <- Cprime / M[keep]                             # 摩尔（比例，差共同因子）
+  z  <- valence[keep]
+  charge_target <- 2 * n_O
+  Ff <- charge_target / sum(n * z, na.rm = TRUE)     # 化学式因子
+  apfu <- n * Ff
+  M_total <- sum(apfu * M[keep], na.rm = TRUE) + n_O * .M_O
+  conc <- apfu * M[keep] / M_total * 1e6
+  list(conc_ug_g = conc, apfu = apfu, formula_factor = Ff,
+       charge_target = charge_target, M_total = M_total)
+}
+
+#' 氟磷灰石 Ca5(PO4)3F：结构式补 P 与 F
+#'
+#' P 因高电离能、F 因不电离，ICP-MS 测不准。用结构式约束理论补：
+#'   · Ca 位（除 P 位外的阳离子）apfu 和 = 5
+#'   · P 位（P + Si + As）apfu 和 = 3  →  P = 3 - Si - As
+#'   · F = 1，O = 12
+termite_formula_apatite <- function(cps, lambda, M, valence) {
+  keep <- setdiff(names(cps), "P")                   # P 测不准，剔除；F 不测
+  Cprime <- cps[keep] * lambda[keep]
+  n  <- Cprime / M[keep]
+  p_site <- intersect(c("Si", "As"), keep)           # P 位里测得到的元素
+  ca_site <- setdiff(keep, p_site)                   # Ca 位（其余阳离子）
+  Ff <- 5 / sum(n[ca_site], na.rm = TRUE)            # Ca 位 apfu 和 = 5
+  apfu <- n * Ff
+  Fn_Si <- if ("Si" %in% names(apfu)) apfu[["Si"]] else 0
+  Fn_As <- if ("As" %in% names(apfu)) apfu[["As"]] else 0
+  Fn_P  <- 3 - Fn_Si - Fn_As                         # 结构式约束
+  Fn_F  <- 1
+  n_O   <- 12
+  M_cat  <- sum(apfu * M[keep], na.rm = TRUE)
+  M_total <- M_cat + Fn_P * .M_P + Fn_F * .M_F + n_O * .M_O
+  conc    <- apfu * M[keep] / M_total * 1e6
+  conc_P  <- Fn_P * .M_P / M_total * 1e6
+  list(conc_ug_g = c(conc, P = conc_P),
+       apfu = c(apfu, P = Fn_P, F = Fn_F),
+       formula_factor = Ff, Fn_P = Fn_P, Fn_F = Fn_F, M_total = M_total)
+}
+
+#' 云母 X Y2-3 Z4 O10 (OH,F)2：结构式补 K 与 OH（AYCF2，Zhang 2023）
+#'
+#' K 在层间位，LA 测不准（层间位分馏 + 低 K 参考物质），用 X 位约束理论补：
+#'   · Y+Z 位（非层间阳离子）电荷归一化到 21（总 22，X 位整体按 +1 计）
+#'   · X 位（Na + K + Rb + Cs + Ca + Ba + Sr）apfu 和 = 1 → K = 1 - 其余
+#'   · 挥发性组分全按 OH 计：OH = 2，O = 10（F 与 OH 原子量相近，可近似）
+termite_formula_mica <- function(cps, lambda, M, valence) {
+  keep  <- setdiff(names(cps), c("K", "F", "Cl"))    # K 测不准；F/Cl 不测
+  Xsite <- intersect(c("Na", "Rb", "Cs", "Ca", "Ba", "Sr"), keep)
+  YZsite <- setdiff(keep, Xsite)
+  Cprime <- cps[keep] * lambda[keep]
+  n  <- Cprime / M[keep]
+  z  <- valence[keep]
+  Ff <- 21 / sum(n[YZsite] * z[YZsite], na.rm = TRUE)   # Y+Z 位电荷归一化
+  apfu <- n * Ff
+  Fn_X  <- sum(apfu[Xsite], na.rm = TRUE)               # 测得的层间阳离子 apfu
+  Fn_K  <- 1 - Fn_X                                     # X 位 apfu 和 = 1
+  Fn_OH <- 2
+  n_O   <- 10
+  M_cat  <- sum(apfu * M[keep], na.rm = TRUE)
+  M_total <- M_cat + Fn_K * .M_K + Fn_OH * (.M_O + .M_H) + n_O * .M_O
+  conc   <- apfu * M[keep] / M_total * 1e6
+  conc_K <- Fn_K * .M_K / M_total * 1e6
+  list(conc_ug_g = c(conc, K = conc_K),
+       apfu = c(apfu, K = Fn_K, OH = Fn_OH),
+       formula_factor = Ff, Fn_K = Fn_K, Fn_OH = Fn_OH, M_total = M_total)
+}
+
+
+# -----------------------------------------------------------------------------
+# 3. 顶层入口：跑一遍无内标校准
+# -----------------------------------------------------------------------------
+
+#' 无内标矿物化学式归一化校准
+#'
+#' @param cfg       termite_defaults() 的参数列表（数据目录、积分窗口等）
+#' @param mineral   矿物名（见 termite_mineral_defs()，如 scheelite / fluorapatite / muscovite）
+#' @param valence   可选，元素→价态覆盖（命名向量）；缺省用内置默认价态表
+#' @return list(isotopes, elements, lambda, samples=data.frame(每样品浓度),
+#'              apfu, formula_factor, mineral)
+termite_run_formula <- function(cfg, mineral, valence = NULL) {
+  stopifnot(is.list(cfg))
+  mode <- cfg$mode
+  if (!identical(mode, "spot"))
+    stop("无内标校准目前只支持点分析（mode = 'spot'）。")
+
+  # ---- 读数据库与文件清单（复用核心层）----
+  f_iso <- termite_resource(cfg$file_isotopes, cfg)
+  f_std <- termite_resource(cfg$file_standards, cfg)
+  if (!file.exists(f_iso)) stop("找不到同位素原子量/丰度表：", f_iso)
+  if (!file.exists(f_std)) stop("找不到参考物质推荐值表：", f_std)
+  iso_tab <- termite_read_isotopes(f_iso)
+  std_tab <- termite_read_standards(f_std)
+
+  plan <- termite_plan(cfg)
+  if (!nrow(plan)) stop("没有找到任何原始数据文件。")
+  sample_files <- plan$path[plan$kind == "sample"]
+  ref_files    <- plan$path[plan$kind == "ref"]
+  ref_rm       <- plan$material[plan$kind == "ref"]
+  if (!length(sample_files)) stop("没有识别出任何样品文件。")
+  if (!length(ref_files))    stop("没有识别出任何定标参考物质。")
+
+  # ---- 表头 / 元素 / 原子量 ----
+  hdr_src <- if (length(sample_files)) sample_files[1] else ref_files[1]
+  isotopes <- termite_read_header(hdr_src, cfg)
+  if (!is.null(cfg$resolution) && nzchar(cfg$resolution))
+    isotopes <- trimws(gsub(cfg$resolution, "", isotopes, fixed = TRUE))
+  isotopes_db <- termite_normalize_isotope(isotopes)
+  elements <- element_of(isotopes)
+
+  # 同位素 → 参考表列名（复用别名 + 同元素借用）
+  iso_alias <- termite_read_alias(termite_resource(cfg$file_iso_alias, cfg))
+  db_key <- termite_apply_alias(isotopes_db, iso_alias)
+  for (k in which(!db_key %in% names(iso_tab))) {
+    same <- names(iso_tab)[element_of(names(iso_tab)) == elements[k]]
+    if (length(same)) db_key[k] <- same[1]
+  }
+  if (any(!db_key %in% names(iso_tab)))
+    stop("同位素原子量/丰度表中缺少：",
+         paste(unique(isotopes[!db_key %in% names(iso_tab)]), collapse = ", "))
+
+  # 元素原子量（Atomic_weight 行按元素取，同一元素各同位素相同）
+  Aw <- as.numeric(iso_tab["Atomic_weight", db_key])
+  names(Aw) <- isotopes
+  # 同位素丰度（用于给多通道元素挑主同位素）
+  Ab <- as.numeric(iso_tab["isotope_abundance", db_key])
+  names(Ab) <- isotopes
+
+  # 每个元素挑「丰度最高的同位素」作为代表通道
+  keep_iso <- logical(length(isotopes)); names(keep_iso) <- isotopes
+  for (el in unique(elements)) {
+    ii <- which(elements == el)
+    keep_iso[ii[which.max(Ab[ii])]] <- TRUE
+  }
+  main_iso <- isotopes[keep_iso]
+  main_el  <- elements[keep_iso]
+  M_el <- Aw[main_iso]; names(M_el) <- main_el
+
+  # 价态
+  val <- .termite_valence_default
+  if (!is.null(valence)) val[names(valence)] <- valence
+  val_el <- val[main_el]; names(val_el) <- main_el
+
+  # ---- 灵敏度 lambda：多参考物质回归 ----
+  .net_cps <- function(path) {
+    r  <- termite_read_raw(path, cfg, n_sweeps = cfg$n_sweeps_ref)
+    m  <- r$values
+    # auto_detect 模式下数据起始行来自探测结果，不能用 cfg$signal_line（未回填）
+    sig_line <- if (isTRUE(cfg$auto_detect)) r$fmt$signal_line else cfg$signal_line
+    s1 <- .to_matrix_row(cfg$first_signal, sig_line)
+    s2 <- .to_matrix_row(cfg$last_signal,  sig_line)
+    b1 <- .to_matrix_row(cfg$first_blank,  sig_line)
+    b2 <- .to_matrix_row(cfg$last_blank,   sig_line)
+    s2 <- min(s2, nrow(m)); s1 <- min(s1, s2)
+    b2 <- min(b2, nrow(m)); b1 <- min(b1, b2)
+    bl <- .blank_stat(m, b1, b2, cfg$background)
+    net <- m[s1:s2, , drop = FALSE] -
+           matrix(bl, nrow = s2 - s1 + 1L, ncol = ncol(m), byrow = TRUE)
+    if (isTRUE(cfg$clip_negative)) net[!is.na(net) & net < 0] <- 0
+    mu <- colMeans(net, na.rm = TRUE)
+    names(mu) <- isotopes
+    mu
+  }
+  ref_cps <- lapply(ref_files, .net_cps)
+  ref_conc <- lapply(ref_rm, function(rm)
+    as.numeric(std_tab[rm, db_key]))
+  names(ref_conc) <- NULL
+  for (k in seq_along(ref_conc)) names(ref_conc[[k]]) <- isotopes
+  lambda <- termite_sensitivity(ref_cps, ref_conc)
+
+  # ---- 矿物参数 + 归算 ----
+  # 优先读 mineral_formulas.csv（用户可覆盖/扩展），否则用内置表
+  mp <- termite_mineral_param(mineral, termite_mineral_defs(cfg))
+  reducer <- switch(mp$mode,
+                    anhydrous = termite_formula_anhydrous,
+                    apatite   = termite_formula_apatite,
+                    mica      = termite_formula_mica,
+                    stop("不支持的矿物模式：", mp$mode))
+
+  sample_cps <- lapply(sample_files, .net_cps)
+  sid <- if (identical(cfg$layout, "flat"))
+    plan$sample_name[plan$kind == "sample"] else basename(sample_files)
+
+  # 灵敏度按「元素」重命名，与 cps_k / M_el / val_el 对齐（还原函数按名字取 lambda）
+  lambda_el <- lambda[main_iso]
+  names(lambda_el) <- main_el
+
+  out <- lapply(seq_along(sample_files), function(k) {
+    cps_k <- sample_cps[[k]][main_iso]; names(cps_k) <- main_el
+    # 只有无水矿物才需要 n_O（电荷目标）；磷灰石/云母用结构式常数
+    if (identical(mp$mode, "anhydrous"))
+      reducer(cps_k, lambda_el, M_el, val_el, n_O = mp$n_O)
+    else
+      reducer(cps_k, lambda_el, M_el, val_el)
+  })
+  names(out) <- sid
+
+  conc_mat <- do.call(rbind, lapply(out, function(r) r$conc_ug_g))
+  rownames(conc_mat) <- sid
+
+  list(mineral = mp, mode = "formula", isotopes = main_iso, elements = main_el,
+       lambda = lambda[main_iso], samples = conc_mat,
+       apfu = lapply(out, `[[`, "apfu"),
+       formula_factor = vapply(out, `[[`, numeric(1), "formula_factor"),
+       M_total = vapply(out, `[[`, numeric(1), "M_total"))
+}
+
+#' 无内标结果 → 数据框（供展示/导出）
+termite_formula_table <- function(res) {
+  d <- as.data.frame(res$samples, check.names = FALSE)
+  data.frame(ID = rownames(res$samples), d, check.names = FALSE, row.names = NULL)
+}

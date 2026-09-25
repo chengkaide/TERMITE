@@ -13,6 +13,12 @@ root <- Sys.getenv("TERMITE_ROOT", unset = ".")
 if (!file.exists(file.path(root, "R", "termite_core.R"))) root <- getwd()
 setwd(root)
 options(encoding = "UTF-8")
+# native 编码若是 "C"（ASCII），source(encoding="UTF-8") 会因中文注释无法转码而吞掉代码；
+# 切到 UTF-8 原生 locale（Windows 10+ 支持），不行再用 GBK 兜底（已是 MBCS/UTF-8 时无操作）。
+if (!l10n_info()[["MBCS"]] && !l10n_info()[["UTF-8"]]) {
+  for (lc in c("English_United States.utf8", "Chinese (Simplified)_China.936"))
+    if (nzchar(suppressWarnings(Sys.setlocale("LC_CTYPE", lc)))) break
+}
 suppressPackageStartupMessages(library(shiny))
 for (f in list.files("R", pattern = "\\.[Rr]$", full.names = TRUE)) source(f, encoding = "UTF-8")
 

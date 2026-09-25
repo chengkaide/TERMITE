@@ -23,6 +23,7 @@
 | 想了解 | 读这份 |
 |---|---|
 | 算法原理与公式推导 | [docs/PRINCIPLES.md](docs/PRINCIPLES.md) |
+| 无内标校准：矿物化学式归一化（AYCF） | [docs/FORMULA_CAL.md](docs/FORMULA_CAL.md) |
 | 数据导入：支持的格式、别名表、内标选择 | [docs/IMPORT.md](docs/IMPORT.md) |
 | 原脚本的问题清单与修改说明 | [docs/FIXES.md](docs/FIXES.md) |
 

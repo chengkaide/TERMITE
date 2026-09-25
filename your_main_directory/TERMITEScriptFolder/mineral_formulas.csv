@@ -1,0 +1,21 @@
+# 矿物结构式参数表 —— 无内标「矿物化学式归一化」校准（AYCF 家族）
+# 列说明：
+#   name      矿物名（termite_run_formula(cfg, mineral=name) 里用）
+#   formula   矿物化学式（注释用；含逗号时已加引号，避免被当成分隔符）
+#   mode      归算路径：anhydrous 无水矿物电荷归一化；apatite 氟磷灰石；mica 云母
+#   n_O       化学式里的氧原子数（决定阳离子电荷目标）
+#   n_F       F 原子数（挥发组分，默认 0）
+#   n_OH      OH 数（挥发组分，默认 0；F 与 OH 原子量相近，含 F 矿物可近似为 OH）
+#   excluded  ICP-MS 测不准、需要按结构式理论补的元素（逗号分隔，无则留空）
+#   note      中文备注
+# 引用：
+#   Liu et al. (2008) Chem. Geol. 257 —— 无水矿物 AYCF
+#   Zhang et al. (2022) JAAS 37:1793 —— 氟磷灰石结构式补 P/F
+#   Zhang et al. (2023) JAAS 38:1387 —— 云母结构式补 K/OH(F)
+name,formula,mode,n_O,n_F,n_OH,excluded,note
+scheelite,CaWO4,anhydrous,4,0,0,,白钨矿
+cassiterite,SnO2,anhydrous,2,0,0,,锡石
+zircon,ZrSiO4,anhydrous,4,0,0,,锆石
+fluorapatite,Ca5(PO4)3F,apatite,12,1,0,P,氟磷灰石
+muscovite,"KAl2(AlSi3)O10(OH,F)2",mica,10,0,2,K,白云母
+biotite,"K(Mg,Fe)3(AlSi3)O10(OH,F)2",mica,10,0,2,K,黑云母

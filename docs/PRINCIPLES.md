@@ -233,6 +233,10 @@ LoD_j = 3 σ_j(blank) / mean(I_j^sample) × C_j^cert(RefMat1)
 若一批样品分成几类基体，要么分批跑，要么接受某一类的结果不可用。
 把它硬套一个内标，得到的是数字，不是含量。
 
+**内标的替代方案**：有些矿物（氟磷灰石、云母）没有可靠的内标，或不想先做 EPMA，
+可以改用**矿物化学式归一化**（AYCF 家族）——用矿物结构式（a.p.f.u. / 电荷平衡）替代内标，
+省去 EPMA。见 [FORMULA_CAL.md](FORMULA_CAL.md)，入口是 `termite_run_formula()`。
+
 数据导入的细节（支持哪些仪器格式、别名表怎么配、参考物质名称怎么对）
 见 [IMPORT.md](IMPORT.md)。
 
