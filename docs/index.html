@@ -15,7 +15,7 @@
     --blue:#14547F; --bluebg:#EAF3FA;
   }
   *{box-sizing:border-box}
-  html{-webkit-text-size-adjust:100%}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--ink);
        font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
        font-size:15.5px;line-height:1.8;font-variant-numeric:tabular-nums}
@@ -109,15 +109,71 @@
   footer{margin-top:20px;padding-top:22px;border-top:1px solid var(--line);
          color:var(--ink3);font-size:13.5px;line-height:1.8}
   footer a{color:var(--ink2)}
+
+  /* ---------- navbar（sticky 顶部导航） ---------- */
+  .nav{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.92);
+       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+       border-bottom:1px solid var(--line)}
+  .nav .inner{max-width:1040px;margin:0 auto;padding:0 30px;display:flex;
+       align-items:center;gap:18px;height:56px}
+  .nav .brand{font-weight:700;font-size:15.5px;color:var(--ink);letter-spacing:-.2px;white-space:nowrap}
+  .nav .brand i{color:var(--pur);font-style:normal}
+  .nav .links{margin-left:auto;display:flex;gap:2px;flex-wrap:nowrap}
+  .nav .links a{color:var(--ink2);font-size:13.5px;padding:6px 12px;border-radius:7px;white-space:nowrap}
+  .nav .links a:hover{background:var(--panel);text-decoration:none;color:var(--ink)}
+  .nav .links a.gh{font-weight:600;color:var(--pur)}
+  @media(max-width:720px){.nav .links{display:none}}
+
+  /* ---------- badges（shields 风格，纯 CSS 离线可用） ---------- */
+  .badges{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 20px}
+  .badge{display:inline-flex;align-items:stretch;border-radius:6px;overflow:hidden;
+         font-size:11.5px;line-height:1;height:22px;border:1px solid var(--line);
+         font-variant-numeric:tabular-nums}
+  .badge .b-l{background:#55534E;color:#fff;padding:0 9px;display:inline-flex;
+         align-items:center;font-weight:600;letter-spacing:.03em;white-space:nowrap}
+  .badge .b-v{color:#fff;padding:0 9px;display:inline-flex;align-items:center;
+         font-weight:600;white-space:nowrap}
+  .b-r{background:#276DC3}
+  .b-s{background:#75AADB}
+  .b-g{background:#2E8B57}
+  .b-n{background:#6B7280}
+
+  /* ---------- 引用 / BibTeX ---------- */
+  .cite-block{background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+       padding:16px 20px;margin:0 0 14px}
+  .cite-block .t{font-weight:600;color:var(--ink)}
+  .cite-block .copynote{font-size:12px;color:var(--ink3)}
+  .cite-block pre{background:#2A2A33;color:#EAEAF2;border-radius:9px;padding:14px 18px;
+       margin:10px 0 0;overflow-x:auto;font-size:12.5px;line-height:1.7}
+  .cite-block pre code{font-family:Consolas,Menlo,monospace;font-size:12.5px;color:#EAEAF2}
 </style>
 </head>
 <body>
+<nav class="nav">
+  <div class="inner">
+    <span class="brand">TERMITE<i> · </i>LA-ICP-MS 数据归算</span>
+    <div class="links">
+      <a href="#features">特性</a>
+      <a href="#methods">定标策略</a>
+      <a href="#quickstart">快速开始</a>
+      <a href="#docs">文档</a>
+      <a href="#cite">引用</a>
+      <a class="gh" href="https://github.com/chengkaide/TERMITE">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
 <div class="wrap">
 
   <!-- ===================== HERO ===================== -->
   <header class="hero">
     <p class="kicker">LA-ICP-MS · TRACE ELEMENT REDUCTION</p>
     <h1>TERMITE</h1>
+    <div class="badges">
+      <span class="badge"><span class="b-l">R</span><span class="b-v b-r">≥ 3.6</span></span>
+      <span class="badge"><span class="b-l">deps</span><span class="b-v b-s">shiny only</span></span>
+      <span class="badge"><span class="b-l">parity</span><span class="b-v b-g">0.00e+00</span></span>
+      <span class="badge"><span class="b-l">license</span><span class="b-v b-n">upstream</span></span>
+    </div>
     <p class="sub">交互式 <b>LA-ICP-MS 微量元素数据归算</b>工具——把原始 R 脚本重写为
        <b>纯 base R 内核 + Shiny 界面</b>，解析、修错、讲清原理，并保证结果与原脚本<b>逐位一致</b>。</p>
     <div class="chips">
@@ -142,7 +198,7 @@
   </div>
 
   <!-- ===================== 核心能力 ===================== -->
-  <section>
+  <section id="features">
     <h2>核心能力</h2>
     <div class="grid">
       <div class="card">
@@ -180,7 +236,7 @@
   </section>
 
   <!-- ===================== 两种定标策略 ===================== -->
-  <section>
+  <section id="methods">
     <h2>两种定标策略</h2>
     <div class="cmp">
       <div class="card">
@@ -324,7 +380,7 @@ shiny::<span class="f">runApp</span>(<span class="s">"."</span>)</code></pre>
   </section>
 
   <!-- ===================== 文档导航 ===================== -->
-  <section>
+  <section id="docs">
     <h2>文档</h2>
     <div class="docs">
       <a class="doc" href="HANDBOOK.html"><b>入门手册<span class="ext">HTML</span></b>
@@ -347,13 +403,45 @@ shiny::<span class="f">runApp</span>(<span class="s">"."</span>)</code></pre>
     </div>
   </section>
 
+  <!-- ===================== 引用 ===================== -->
+  <section id="cite">
+    <h2>引用</h2>
+    <p>如果这个工具对你的工作有帮助，请引用原始方法与本项目：</p>
+    <div class="cite-block">
+      <span class="t">原始 TERMITE 方法</span>
+      <span class="copynote">（BibTeX，可直接复制）</span>
+      <pre><code>@article{mischel2017termite,
+  author  = {Mischel, Simon A. and Mertz-Kraus, Regina and
+             Jochum, Klaus Peter and Scholz, Denis},
+  title   = {{TERMITE}: An {R} script for fast reduction of laser ablation
+             inductively coupled plasma mass spectrometry data and its
+             application to trace element measurements},
+  journal = {Rapid Communications in Mass Spectrometry},
+  volume  = {31},
+  number  = {13},
+  pages   = {1079--1087},
+  year    = {2017},
+  doi     = {10.1002/rcm.7895}
+}</code></pre>
+    </div>
+    <div class="cite-block">
+      <span class="t">本项目（重写与扩展）</span>
+      <span class="copynote">（GitHub 仓库）</span>
+      <pre><code>@misc{termite_rewrite,
+  author = {chengkaide},
+  title  = {TERMITE 重写：纯 base R 内核 + Shiny 交互界面},
+  year   = {2026},
+  url    = {https://github.com/chengkaide/TERMITE}
+}</code></pre>
+    </div>
+  </section>
+
   <!-- ===================== footer ===================== -->
   <footer>
     <p>原始 TERMITE 由 Simon A. Mischel、Regina Mertz-Kraus、Klaus Peter Jochum、Denis Scholz 开发
       （Speleothem Research Group, University of Mainz）。参考物质推荐值来自
       <a href="http://georem.mpch-mainz.gwdg.de/">GeoReM</a>，同位素参数来自 NIST。</p>
-    <p>本仓库是原脚本的重写与扩展，沿用上游条款。如使用请引用：Mischel, S. A., Mertz-Kraus, R.,
-      Jochum, K. P., &amp; Scholz, D. <i>TERMITE: An R script for fast reduction of LA-ICPMS data.</i></p>
+    <p>本仓库是原脚本的重写与扩展，沿用上游条款。引用信息见上方「引用」区块。</p>
   </footer>
 
 </div>
