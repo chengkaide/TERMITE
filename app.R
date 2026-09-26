@@ -24,22 +24,22 @@ if (!requireNamespace("shiny", quietly = TRUE))
   stop("需要 shiny 包：install.packages('shiny')")
 library(shiny)
 
-# ---- 定位应用目录（不依赖 setwd）---------------------------------------------
-.termite_app_dir <- function() {
-  if (file.exists(file.path("R", "termite_core.R"))) return(getwd())
-  a <- commandArgs(trailingOnly = FALSE)
-  f <- sub("^--file=", "", a[grep("^--file=", a)])
-  if (length(f)) {
-    d <- dirname(normalizePath(f[1], mustWork = FALSE))
-    if (file.exists(file.path(d, "R", "termite_core.R"))) return(d)
-  }
-  if (file.exists("app.R")) return(getwd())
-  stop("找不到 R/termite_core.R；请把工作目录切到仓库根目录后再启动。")
-}
-
 options(encoding = "UTF-8")   # 本机 R 的 native 编码可能是 GBK，源码里有中文注释
-.app_dir <- .termite_app_dir()
-for (.f in list.files(file.path(.app_dir, "R"), pattern = "\\.[Rr]$", full.names = TRUE))
+
+# ---- 定位仓库根目录并装载 R/ 下全部源码 ---------------------------------------
+# 入口可能在任意工作目录启动，也可能以 Rscript --file=... 方式启动，
+# 所以按「当前目录 → 脚本所在目录」依次试探含 R/termite_core.R 的那层。
+# 这一段必须是入口内联的：config 源还没装载，暂时用不到 R/ 里的函数。
+.app_dir <- local({
+  args <- commandArgs(trailingOnly = FALSE)
+  scr  <- sub("^--file=", "", args[grepl("^--file=", args)])
+  cand <- unique(c(getwd(), if (length(scr)) dirname(normalizePath(scr[1], mustWork = FALSE))))
+  hit  <- cand[vapply(cand, function(d) file.exists(file.path(d, "R", "termite_core.R")), TRUE)]
+  if (!length(hit))
+    stop("找不到 R/termite_core.R；请把工作目录切到仓库根目录后再启动。")
+  hit[1]
+})
+for (.f in list.files(file.path(.app_dir, "R"), pattern = "[.][Rr]$", full.names = TRUE))
   source(.f, encoding = "UTF-8")
 
 shinyApp(ui = termite_ui(), server = termite_server)

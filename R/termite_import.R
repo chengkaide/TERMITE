@@ -55,18 +55,11 @@ termite_isotope_style <- function(x) {
 # 2. 探测：不读全文件，只读头部若干行
 # -----------------------------------------------------------------------------
 
-#' 猜分隔符：在候选分隔符里选能把这行切成最多字段的那个
-.termite_sniff_sep <- function(line) {
-  cands <- c(",", "\t", ";", " ")
-  counts <- vapply(cands, function(s) length(strsplit(line, s, fixed = TRUE)[[1]]), 1L)
-  cands[which.max(counts)]
-}
-
 #' 去掉行尾的空字段（Qtegra 表头末尾多一个逗号）
 .trim_trailing_empty <- function(v) {
-  v <- as.character(v)
-  while (length(v) && !nzchar(trimws(v[length(v)]))) v <- v[-length(v)]
-  v
+  nz <- which(nzchar(trimws(as.character(v))))
+  if (!length(nz)) return(character(0))
+  as.character(v)[seq_len(max(nz))]
 }
 
 #' 拆分一行；返回 NULL 表示这行不像数据行
@@ -106,19 +99,22 @@ termite_probe <- function(path, head_lines = 80L) {
   notes <- character(0)
 
   # ---- 定位表头行：第 1 个字段以 time 开头，且至少有 3 个字段 ----
+  # 行优先逐个候选分隔符试（与「先挑行再挑分隔符」同义），保证结果与
+  # 分隔符的行内偏序一致；内层三种分隔符一次拆完，不做嵌套循环。
+  seps <- c(",", "\t", ";")
   header_line <- NA_integer_
   sep <- NA_character_
   hdr <- NULL
   for (i in seq_along(lines)) {
-    for (s in c(",", "\t", ";")) {
-      v <- .split_line(lines[i], s)
-      if (is.null(v) || length(v) < 3L) next
-      if (grepl("^time", tolower(trimws(v[1])))) {
-        header_line <- i; sep <- s; hdr <- v
-        break
-      }
-    }
-    if (!is.na(header_line)) break
+    cand <- lapply(seps, .split_line, line = lines[i])
+    wide <- vapply(cand, function(v) !is.null(v) && length(v) >= 3L, TRUE)
+    if (!any(wide)) next
+    timed <- vapply(cand[wide], function(v) grepl("^time", tolower(trimws(v[1]))), TRUE)
+    hit <- which(wide)[timed]
+    if (!length(hit)) next
+    j <- hit[1]
+    header_line <- i; sep <- seps[j]; hdr <- cand[[j]]
+    break
   }
   if (is.na(header_line))
     stop("在文件前 ", head_lines, " 行里找不到以 Time 开头的表头行：", basename(path))
@@ -130,14 +126,16 @@ termite_probe <- function(path, head_lines = 80L) {
   n_iso <- length(hdr) - 1L
   isotopes_raw <- trimws(hdr[-1])
 
-  # ---- 定位第一条数据行：字段数一致且第 2 个字段是数字 ----
-  signal_line <- NA_integer_
-  probe_to <- min(length(lines), header_line + 10L)
-  for (i in seq.int(header_line + 1L, probe_to)) {
-    v <- .split_line(lines[i], sep)
-    if (is.null(v) || length(v) < 2L) next
-    if (abs(length(v) - (n_iso + 1L)) > 1L) next
-    if (!is.na(suppressWarnings(as.numeric(v[2])))) { signal_line <- i; break }
+  # ---- 定位第一条数据行：字段数基本一致且第 2 个字段是数字 ----
+  cand <- seq.int(header_line + 1L, min(length(lines), header_line + 10L))
+  signal_line <- {
+    ok <- vapply(cand, function(i) {
+      v <- .split_line(lines[i], sep)
+      !is.null(v) && length(v) >= 2L &&
+        abs(length(v) - (n_iso + 1L)) <= 1L &&
+        !is.na(suppressWarnings(as.numeric(v[2])))
+    }, TRUE)
+    if (any(ok)) cand[ok][1] else NA_integer_
   }
   if (is.na(signal_line))
     stop("在表头之后找不到数值数据行：", basename(path))
@@ -230,6 +228,13 @@ termite_read_probed <- function(path, probe = NULL, n_sweeps = NA_integer_,
 
 .termite_ext_re <- "\\.(csv|asc|txt|CSV|ASC|TXT|TXT)$"
 
+#' 空扫描结果（列结构与 termite_scan_dir 一致，保证下游不用判 NULL）
+.empty_scan <- function() data.frame(
+  file = character(0), path = character(0), sample_name = character(0),
+  format = character(0), n_iso = integer(0), header_line = integer(0),
+  signal_line = integer(0), sep = character(0), ok = logical(0),
+  msg = character(0), stringsAsFactors = FALSE)
+
 #' 扫描一个目录，逐个探测文件格式与样品名
 #'
 #' @param dir 目录
@@ -238,20 +243,9 @@ termite_read_probed <- function(path, probe = NULL, n_sweeps = NA_integer_,
 #' @param probe_all 是否逐个探测（TRUE 才能拿到样品名/格式；FALSE 只列文件名）
 termite_scan_dir <- function(dir, pattern = .termite_ext_re, recursive = FALSE,
                              probe_all = TRUE) {
-  if (!dir.exists(dir))
-    return(data.frame(file = character(0), path = character(0),
-                      sample_name = character(0), format = character(0),
-                      n_iso = integer(0), header_line = integer(0),
-                      signal_line = integer(0), sep = character(0),
-                      stringsAsFactors = FALSE))
-  fs <- sort(list.files(dir, pattern = pattern, full.names = TRUE,
-                        recursive = recursive))
-  if (!length(fs))
-    return(data.frame(file = character(0), path = character(0),
-                      sample_name = character(0), format = character(0),
-                      n_iso = integer(0), header_line = integer(0),
-                      signal_line = integer(0), sep = character(0),
-                      stringsAsFactors = FALSE))
+  fs <- if (dir.exists(dir))
+    sort(list.files(dir, pattern = pattern, full.names = TRUE, recursive = recursive))
+  if (!length(fs)) return(.empty_scan())
   rows <- lapply(fs, function(f) {
     if (!probe_all)
       return(list(file = basename(f), path = f, sample_name = tools::file_path_sans_ext(basename(f)),
@@ -349,8 +343,7 @@ termite_suggest_is <- function(plan, cfg, i1, i2, i3, i4, top = 3L) {
       s1 <- max(1L, i3 - off); s2 <- min(nr, i4 - off)
       if (s2 <= s1 || b2 <= b1) stop("积分窗口超出文件范围")
       bl  <- .col_medians(r$values[b1:b2, , drop = FALSE], na.rm = TRUE)
-      net <- r$values[s1:s2, , drop = FALSE] -
-             matrix(bl, nrow = s2 - s1 + 1L, ncol = ncol(r$values), byrow = TRUE)
+      net <- r$values[s1:s2, , drop = FALSE] - .stretch_row(bl, s2 - s1 + 1L)
       mu  <- colMeans(net, na.rm = TRUE)
       ord <- order(mu, decreasing = TRUE)
       jj  <- ord[seq_len(min(top, length(ord)))]

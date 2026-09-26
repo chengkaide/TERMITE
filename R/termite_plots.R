@@ -3,17 +3,15 @@
 # =============================================================================
 
 .termite_theme <- list(
-  bg      = "#ffffff",
-  panel   = "#f7fafc",
-  line    = "#2b6cb0",
-  line2   = "#c05621",
-  blank   = "#3182ce18",
-  signal  = "#e53e3e14",
-  mean    = "#2f855a",
-  out     = "#c53030",
-  grid    = "#e2e8f0",
-  fg      = "#1a202c",
-  muted   = "#718096"
+  bg      = "#ffffff",       # 画布底色
+  line    = "#2b6cb0",       # 主曲线 / 数据点
+  out     = "#c53030",       # 离群 / 可疑点
+  mean    = "#2f855a",       # 均值线 / 合并 RSF
+  muted   = "#718096",       # 辅助线、说明文字
+  grid    = "#e2e8f0",       # 网格
+  fg      = "#1a202c",       # 坐标轴与标签
+  blank   = "#3182ce18",     # 空白区底色（最后两位是 alpha）
+  signal  = "#e53e3e14"      # 信号区底色
 )
 
 #' 面板太多时截断，并给出说明
@@ -24,6 +22,52 @@
   if (length(idx) <= max_panels) return(list(idx = idx, note = ""))
   list(idx = idx[seq_len(max_panels)],
        note = sprintf("　（共 %d 个，仅显示前 %d 个）", length(idx), max_panels))
+}
+
+# ---- 下面四个helper是四个多面板图共用的样板，原先在每处重复一遍 ----
+
+#' 开启画布（返回原来的 par，交给调用方 on.exit(par(op)) 恢复）
+#'
+#' @param mfrow 多面板布局 c(行, 列)；NULL 表示单面板
+.begin_canvas <- function(mar, mfrow = NULL, mgp = NULL, cex.main = 0.95) {
+  op <- par(no.readonly = TRUE)
+  par(mar = mar, bg = .termite_theme$bg, fg = .termite_theme$fg,
+      col.axis = .termite_theme$fg, col.lab = .termite_theme$fg, cex.main = cex.main)
+  if (!is.null(mfrow)) par(mfrow = as.integer(mfrow), mgp = mgp)
+  op
+}
+
+#' 多面板布局：每行列数上限 ncol，面板数不足时收缩成一行，不留空位
+.panel_layout <- function(p, ncol) {
+  nc <- max(1L, min(ncol, p))
+  c(ceiling(p / nc), nc)
+}
+
+#' 收尾：整体说明写在整块图的下边缘（与单个面板标题区分开）
+.end_panels <- function(main, cex = 0.9) {
+  mtext(main, outer = TRUE, line = -1.4, cex = cex, col = .termite_theme$muted)
+}
+
+#' 面板 y 轴范围
+#'
+#' 几类退化情况要兜住，否则 plot() 会报 "cannot set infinite ylim"：
+#'   · 整列 NA        → 给一个占位区间
+#'   · 取值全部相同   → 按 expand 比例上下撑开
+#'   · 含非正值       → 剔掉（对数轴下必须剔；原始信号图也一律剔）
+.panel_ylim <- function(y, drop_nonpos = TRUE, expand = c(0.5, 2)) {
+  if (drop_nonpos) y[y <= 0] <- NA
+  fin <- y[is.finite(y)]
+  if (!length(fin)) return(c(1, 10))
+  rng <- range(fin)
+  if (diff(rng) > 0) rng else rng * expand
+}
+
+#' 空白区 / 信号区的底色块（x 轴口径是文件真实行号）
+.panel_bands <- function(blank, signal, ylim) {
+  if (!is.null(blank))  rect(blank[1],  ylim[1], blank[2],  ylim[2],
+                             col = .termite_theme$blank, border = NA)
+  if (!is.null(signal)) rect(signal[1], ylim[1], signal[2], ylim[2],
+                             col = .termite_theme$signal, border = NA)
 }
 
 #' 原始信号多面板图：每个同位素一格，标出空白区与信号区
@@ -47,30 +91,21 @@ termite_plot_raw <- function(values, isotopes, blank = NULL, signal = NULL,
   values <- values[, lim$idx, drop = FALSE]; isotopes <- isotopes[lim$idx]
   if (nzchar(lim$note)) main <- paste0(main, lim$note)
   v <- values[rows, , drop = FALSE]
-  p <- ncol(v); nc <- min(4L, p); nr <- ceiling(p / nc)
-  op <- par(no.readonly = TRUE); on.exit(par(op))
-  par(mfrow = c(nr, nc), mar = c(3.0, 3.6, 2.0, 0.7), mgp = c(2.1, 0.6, 0),
-      bg = .termite_theme$bg, fg = .termite_theme$fg, col.axis = .termite_theme$fg,
-      col.lab = .termite_theme$fg, cex.main = 0.95)
+  p <- ncol(v)
+  op <- .begin_canvas(c(3.0, 3.6, 2.0, 0.7), .panel_layout(p, 4L), c(2.1, 0.6, 0))
+  on.exit(par(op))
   x <- rows + offset
   for (j in seq_len(p)) {
-    y <- v[, j]
-    y[y <= 0] <- NA
-    fin <- y[is.finite(y)]
-    ylim <- if (!length(fin)) c(1, 10) else range(fin)
-    if (diff(ylim) == 0) ylim <- ylim * c(0.5, 2)
+    ylim <- .panel_ylim(v[, j], expand = c(0.5, 2))
     plot(NA, xlim = range(x), ylim = ylim, log = if (log_y) "y" else "",
          xlab = xlab, ylab = "cps", main = isotopes[j], las = 1,
          xaxs = "i", yaxs = "i", bty = "l")
     grid(col = .termite_theme$grid, lty = 1)
-    if (!is.null(blank))  rect(blank[1],  ylim[1], blank[2],  ylim[2],
-                               col = .termite_theme$blank, border = NA)
-    if (!is.null(signal)) rect(signal[1], ylim[1], signal[2], ylim[2],
-                               col = .termite_theme$signal, border = NA)
+    .panel_bands(blank, signal, ylim)
     lines(x, v[, j], col = .termite_theme$line, lwd = 1)
     box(bty = "l")
   }
-  mtext(main, outer = TRUE, line = -1.4, cex = 0.95, col = .termite_theme$muted)
+  .end_panels(main, cex = 0.95)
 }
 
 #' RSF 逐文件折线 + 均值线（对应原脚本 RSFused_*.pdf）
@@ -84,58 +119,54 @@ termite_plot_rsf <- function(res, main = "RSF（灵敏度因子）",
   lim <- .limit_panels(seq_len(ncol(d)), max_panels)
   d <- d[, lim$idx, drop = FALSE]
   if (nzchar(lim$note)) main <- paste0(main, lim$note)
-  p <- ncol(d); nc <- min(4L, p); nr <- ceiling(p / nc)
-  op <- par(no.readonly = TRUE); on.exit(par(op))
-  par(mfrow = c(nr, nc), mar = c(3.4, 3.6, 2.0, 0.7), mgp = c(2.1, 0.6, 0),
-      bg = .termite_theme$bg, fg = .termite_theme$fg, col.axis = .termite_theme$fg,
-      col.lab = .termite_theme$fg, cex.main = 0.95)
+  # 面板可能已被筛选/截断，标题与标注一律用 d 自己的列名，
+  # 否则列号 j 会串到 res$isotopes 的全集上去
+  iso_j <- colnames(d)
   brk <- cumsum(table(res$files$ref_rm))
+  p <- ncol(d)
+  op <- .begin_canvas(c(3.4, 3.6, 2.0, 0.7), .panel_layout(p, 4L), c(2.1, 0.6, 0))
+  on.exit(par(op))
   for (j in seq_len(p)) {
     y <- d[, j]
-    if (all(is.na(y))) { plot.new(); title(main = res$isotopes[j]); next }
-    r <- range(y, na.rm = TRUE); if (diff(r) == 0) r <- r * c(0.9, 1.1)
+    if (all(is.na(y))) { plot.new(); title(main = iso_j[j]); next }
     plot(seq_along(y), y, type = "b", pch = 16, cex = 0.7, col = .termite_theme$line,
-         ylim = r, xlab = "", ylab = paste("RSF", res$elements[j]), main = res$isotopes[j],
+         ylim = .panel_ylim(y, drop_nonpos = FALSE, expand = c(0.9, 1.1)),
+         xlab = "", ylab = paste("RSF", element_of(iso_j[j])), main = iso_j[j],
          las = 1, xaxt = "n")
     axis(1, at = seq_along(y), labels = FALSE, tick = FALSE)
     abline(v = brk[-length(brk)] + 0.5, lty = 2, col = .termite_theme$muted)
-    abline(h = res$rsf[j], lty = 3, lwd = 2, col = .termite_theme$mean)
+    abline(h = res$rsf[iso_j[j]], lty = 3, lwd = 2, col = .termite_theme$mean)
     box(bty = "l")
   }
-  mtext(main, outer = TRUE, line = -1.4, cex = 0.95, col = .termite_theme$muted)
+  .end_panels(main, cex = 0.95)
 }
 
 #' 检出限（对应原脚本 LoD_ReferenceMaterial_*.pdf）
 termite_plot_lod <- function(res, main = "检出限 LoD") {
   y <- as.numeric(res$lod)
-  op <- par(no.readonly = TRUE); on.exit(par(op))
-  par(mar = c(4.2, 4.4, 2.4, 1), bg = .termite_theme$bg, fg = .termite_theme$fg,
-      col.axis = .termite_theme$fg, col.lab = .termite_theme$fg)
+  op <- .begin_canvas(c(4.2, 4.4, 2.4, 1)); on.exit(par(op))
   plot(seq_along(y), y, log = "y", pch = 16, col = .termite_theme$line,
        xaxt = "n", xlab = "同位素", ylab = expression("LoD  [" * mu * "g/g]"),
        main = main, las = 1)
   axis(1, at = seq_along(y), labels = res$isotopes, las = 2, cex.axis = 0.8)
   grid(col = .termite_theme$grid, lty = 1)
+  # 网格会盖在点上，重画一次让点回到上层
   points(seq_along(y), y, pch = 16, col = .termite_theme$line)
   box(bty = "l")
 }
 
 #' 点分析：逐元素浓度散点 + 相对标准偏差标红（对应原脚本 Results_*.pdf）
 termite_plot_spot <- function(res, elements = NULL, max_panels = 16L) {
-  el  <- res$elements
-  keep <- if (is.null(elements)) which(el != res$elements[res$is_idx]) else
-    match(elements, el)
+  el <- res$elements
+  # 内标元素的浓度是输入值（不做测量），画出来没有意义，默认跳过
+  keep <- if (is.null(elements)) which(el != el[res$is_idx]) else match(elements, el)
   keep <- keep[!is.na(keep)]
-  lim <- .limit_panels(keep, max_panels)
+  lim  <- .limit_panels(keep, max_panels)
   keep <- lim$idx
-  d <- res$sample$conc_masked[, keep, drop = FALSE]
-  if (nzchar(lim$note)) elements <- NULL
-  sd_ <- res$sample$rsd[, keep, drop = FALSE]
-  p <- ncol(d); nc <- min(4L, p); nr <- ceiling(p / nc)
-  op <- par(no.readonly = TRUE); on.exit(par(op))
-  par(mfrow = c(nr, nc), mar = c(3.6, 4.0, 2.2, 0.7), mgp = c(2.2, 0.6, 0),
-      bg = .termite_theme$bg, fg = .termite_theme$fg, col.axis = .termite_theme$fg,
-      col.lab = .termite_theme$fg, cex.main = 0.95)
+  d    <- res$sample$conc_masked[, keep, drop = FALSE]
+  p    <- ncol(d)
+  op <- .begin_canvas(c(3.6, 4.0, 2.2, 0.7), .panel_layout(p, 4L), c(2.2, 0.6, 0))
+  on.exit(par(op))
   for (k in seq_len(p)) {
     j <- keep[k]
     y <- d[, k]
@@ -148,8 +179,7 @@ termite_plot_spot <- function(res, elements = NULL, max_panels = 16L) {
     abline(h = res$lod[j], lty = 3, col = .termite_theme$muted)
     box(bty = "l")
   }
-  mtext(paste0("红点 = 相对标准偏差高于均值（可疑不均匀点）", lim$note),
-        outer = TRUE, line = -1.4, cex = 0.9, col = .termite_theme$muted)
+  .end_panels(paste0("红点 = 相对标准偏差高于均值（可疑不均匀点）", lim$note))
 }
 
 #' 线扫描：距离-浓度剖面
@@ -158,13 +188,11 @@ termite_plot_profile <- function(res, elements = NULL, idx = 1L, max_panels = 12
   el   <- res$elements
   keep <- if (is.null(elements)) which(el != el[res$is_idx]) else match(elements, el)
   keep <- keep[!is.na(keep)]
-  lim <- .limit_panels(keep, max_panels); keep <- lim$idx
+  lim  <- .limit_panels(keep, max_panels); keep <- lim$idx
   d <- prof$conc_masked[, keep, drop = FALSE]
-  p <- ncol(d); nc <- min(3L, p); nr <- ceiling(p / nc)
-  op <- par(no.readonly = TRUE); on.exit(par(op))
-  par(mfrow = c(nr, nc), mar = c(3.8, 4.2, 2.0, 0.7), mgp = c(2.4, 0.6, 0),
-      bg = .termite_theme$bg, fg = .termite_theme$fg, col.axis = .termite_theme$fg,
-      col.lab = .termite_theme$fg, cex.main = 0.95)
+  p <- ncol(d)
+  op <- .begin_canvas(c(3.8, 4.2, 2.0, 0.7), .panel_layout(p, 3L), c(2.4, 0.6, 0))
+  on.exit(par(op))
   for (k in seq_len(p)) {
     j <- keep[k]
     y <- d[, k]
@@ -172,12 +200,12 @@ termite_plot_profile <- function(res, elements = NULL, idx = 1L, max_panels = 12
     plot(prof$distance, y, type = "l", col = .termite_theme$line, lwd = 1,
          xlab = "距离 [mm]", ylab = expression("[" * mu * "g/g]"), main = el[j], las = 1)
     grid(col = .termite_theme$grid, lty = 1)
+    # 网格会盖在线上，重画一次让剖面回到上层
     lines(prof$distance, y, col = .termite_theme$line, lwd = 1)
     abline(h = res$lod[j], lty = 3, col = .termite_theme$muted)
     box(bty = "l")
   }
-  mtext(sprintf("样品：%s　虚线 = LoD%s", prof$file, lim$note),
-        outer = TRUE, line = -1.4, cex = 0.9, col = .termite_theme$muted)
+  .end_panels(sprintf("样品：%s　虚线 = LoD%s", prof$file, lim$note))
 }
 
 #' 背景（gas blank）柱状对比
@@ -185,9 +213,7 @@ termite_plot_blank <- function(res, files = 1L, which = c("ref", "sample")) {
   which <- match.arg(which)
   b <- termite_blank_of(res, which, files)
   if (is.null(b)) { plot.new(); title(main = "无背景数据"); return(invisible(NULL)) }
-  op <- par(no.readonly = TRUE); on.exit(par(op))
-  par(mar = c(4.4, 4.4, 2.2, 0.8), bg = .termite_theme$bg, fg = .termite_theme$fg,
-      col.axis = .termite_theme$fg, col.lab = .termite_theme$fg)
+  op <- .begin_canvas(c(4.4, 4.4, 2.2, 0.8)); on.exit(par(op))
   barplot(b, names.arg = res$isotopes, las = 2, col = .termite_theme$line,
           border = NA, ylab = "blank cps",
           main = paste0("背景（gas blank）· ",

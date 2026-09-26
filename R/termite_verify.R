@@ -97,11 +97,10 @@ termite_verify <- function(data_dir = "your_main_directory",
   cfg2$legacy_lod <- TRUE; cfg2$legacy_time_axis <- TRUE; cfg2$clip_negative <- FALSE
   cfg3 <- cfg2; cfg3$legacy_lod <- FALSE; cfg3$legacy_time_axis <- FALSE
   ta <- termite_table(termite_run(cfg2)); tb <- termite_table(termite_run(cfg3))
-  chg <- 0L
-  for (cn in setdiff(names(ta), "length_mm")) {
-    x <- .vfy_num(ta[[cn]]); y <- .vfy_num(tb[[cn]])
-    chg <- chg + sum(xor(is.na(x), is.na(y)))
-  }
+  # 修正模式带来的差异：逐列比较 NA 状态，xor 出的差异数即受影响的单元格数
+  cols <- setdiff(names(ta), "length_mm")
+  chg  <- sum(vapply(cols, function(cn)
+    sum(xor(is.na(.vfy_num(ta[[cn]])), is.na(.vfy_num(tb[[cn]])))), 1L))
   dx <- abs(tb$length_mm[1] - ta$length_mm[1]) * 1000
 
   s <- paste0(
@@ -118,18 +117,16 @@ termite_verify <- function(data_dir = "your_main_directory",
 termite_verify_text <- function(v) {
   if (is.null(v$detail)) return(v$summary)
   det <- v$detail
-  out <- v$summary
-  for (cs in unique(det$case)) {
-    out <- paste0(out, "\n[", cs, "]\n")
-    sub <- det[det$case == cs, ]
-    for (k in seq_len(nrow(sub))) {
-      out <- paste0(out, sprintf("  %-34s %-4s n=%-6s rel=%.2e  %s%s\n",
-                                 sub$table[k], sub$column[k],
-                                 ifelse(is.na(sub$n[k]), "-", sub$n[k]),
-                                 sub$max_rel[k],
-                                 ifelse(sub$pass[k], "OK", "FAIL"),
-                                 ifelse(sub$na_pattern[k], "", "  [NA 模式不同]")))
-    }
-  }
-  out
+  # 按 case 分组（levels 显式给出，保证输出顺序与输入一致）
+  groups <- split(seq_len(nrow(det)), factor(det$case, levels = unique(det$case)))
+  blocks <- vapply(groups, function(ii) {
+    rows <- sprintf("  %-34s %-4s n=%-6s rel=%.2e  %s%s",
+                    det$table[ii], det$column[ii],
+                    ifelse(is.na(det$n[ii]), "-", det$n[ii]),
+                    det$max_rel[ii],
+                    ifelse(det$pass[ii], "OK", "FAIL"),
+                    ifelse(det$na_pattern[ii], "", "  [NA 模式不同]"))
+    paste0("\n[", det$case[ii[1]], "]\n", paste(rows, collapse = "\n"), "\n")
+  }, character(1))
+  paste0(v$summary, paste(blocks, collapse = ""))
 }

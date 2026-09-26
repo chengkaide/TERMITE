@@ -127,21 +127,25 @@ termite_mineral_param <- function(mineral, defs = NULL) {
 
 #' 计算各元素的灵敏度 lambda（µg/g per cps）
 #'
-#' @param cps_list  list，每个元素是一个参考物质文件的净计数率矩阵（列=同位素）
-#'                  更常用的调用方式见 termite_run_formula()，这里接受
-#'                  list(每文件一个命名向量 cps) 与 conc(每文件一个命名向量 C)
-#' @param conc_list list，与 cps_list 同构，参考物质推荐值（元素浓度 µg/g）
-#' @return 命名向量 lambda（同位素名）
+#' 每个参考物质给一个「净计数率 / 推荐含量」的配对，过原点回归：
+#'   lambda_j = Σ_{rm} C_j^rm ÷ Σ_{rm} cps_j^rm
+#' 注意这是对 **j 逐元素独立**求和的，从不把各元素加到一起 ——
+#' 所以参考物质的通道没测全（例如 SRM 玻璃不接 Na、Al）也不影响结果，
+#' 见 termite_ref_coverage()。
+#'
+#' @param cps_list  list，每个参考物质一个命名向量 cps（名为同位素）
+#' @param conc_list list，与 cps_list 同构，参考物质推荐值（µg/g）
+#' @return 命名向量 lambda（同位素名）；某个同位素没有可用配对时为 NA
 termite_sensitivity <- function(cps_list, conc_list) {
   iso <- names(cps_list[[1]])
-  lam <- numeric(length(iso)); names(lam) <- iso
-  for (j in iso) {
-    cs <- vapply(cps_list, function(v) as.numeric(v[[j]]), 1.0)
-    cc <- vapply(conc_list, function(v) as.numeric(v[[j]]), 1.0)
-    ok <- is.finite(cs) & is.finite(cc) & cs > 0
-    lam[j] <- if (any(ok)) sum(cc[ok]) / sum(cs[ok]) else NA_real_
-  }
-  lam
+  # 摊成「每参考物质一行、同位素一列」的矩阵，之后全是矩阵运算
+  cps <- t(vapply(cps_list,  function(v) as.numeric(v[iso]), numeric(length(iso))))
+  con <- t(vapply(conc_list, function(v) as.numeric(v[iso]), numeric(length(iso))))
+  ok  <- is.finite(cps) & is.finite(con) & cps > 0
+  num <- colSums(ifelse(ok, con, 0), na.rm = TRUE)
+  den <- colSums(ifelse(ok, cps, 0), na.rm = TRUE)   # cps > 0 保证分母为正
+  # den > 0 与原写法的 any(ok) 等价：ok 里已含 cps > 0
+  setNames(ifelse(den > 0, num / den, NA_real_), iso)
 }
 
 
@@ -178,22 +182,25 @@ termite_ref_coverage <- function(std_tab, rm, elements,
   M <- if (is.null(M)) .termite_M_default else M
   valence <- if (is.null(valence)) .termite_valence_default else valence
 
+  # 参考表里同一元素有多列（各同位素），按元素去重取第一次出现的值
+  # 推荐值表一列一个同位素（Si28 / Na23…），先折成元素名再去重
   v <- suppressWarnings(as.numeric(std_tab[rm, ]))
   names(v) <- element_of(names(std_tab))
   v <- v[is.finite(v) & v > 0]
   if (!length(v)) return(NULL)
   e_all <- unique(names(v))
-  by_el <- vapply(e_all, function(e) v[names(v) == e][1], 1.0)
+  by_el <- v[match(e_all, names(v))]
+  names(by_el) <- e_all
 
   # 玻璃里的挥发性/阴离子组分不计入「氧化物总量」
   skip <- c("H", "C", "N", "O", "F", "Cl", "S", "Br", "I")
-  ox <- function(e) {
-    if (e %in% skip) return(0)
-    aw <- unname(M[e]); z <- unname(valence[e])
-    if (length(aw) != 1 || length(z) != 1 || is.na(aw) || is.na(z)) return(0)
-    by_el[[e]] * (1 + (z / 2) * .M_O / aw)
-  }
-  o_all  <- vapply(e_all, ox, 0)
+  aw <- M[match(e_all, names(M))]              # 查不到的元素 → NA
+  z  <- valence[match(e_all, names(valence))]
+  # 元素 → 氧化物折算系数：补回氧化物里的氧
+  f  <- ifelse(!is.na(aw) & !is.na(z), 1 + (z / 2) * .M_O / aw, 0)
+  f[e_all %in% skip] <- 0
+  o_all <- by_el * f
+
   full   <- sum(o_all)
   meas   <- sum(o_all[e_all %in% elements])
   miss   <- sort(by_el[!(e_all %in% elements)] / 1e4, decreasing = TRUE)
@@ -308,16 +315,14 @@ termite_formula_anhydrous <- function(cps, lambda, M, valence, n_O)
 
 #' 解析 CSV 里的 fixed 列："Be:3" → c(Be=3)；"B:3;Si:6" → c(B=3, Si=6)；空 → numeric(0)
 .parse_fixed <- function(s) {
-  if (is.null(s) || length(s) == 0L || is.na(s) || !nzchar(trimws(s)))
-    return(numeric(0))
-  parts <- strsplit(trimws(s), ";", fixed = TRUE)[[1L]]
+  if (is.null(s) || length(s) == 0L || is.na(s)) return(numeric(0))
+  parts <- trimws(strsplit(s, ";", fixed = TRUE)[[1L]])
+  parts <- parts[nzchar(parts)]
+  if (!length(parts)) return(numeric(0))
+  kv  <- strsplit(parts, ":", fixed = TRUE)
+  val <- suppressWarnings(as.numeric(trimws(vapply(kv, `[`, "", 2L))))
   out <- numeric(0)
-  for (p in parts) {
-    p <- trimws(p)
-    if (!nzchar(p)) next
-    kv <- strsplit(p, ":", fixed = TRUE)[[1L]]
-    out[trimws(kv[1L])] <- as.numeric(trimws(kv[2L]))
-  }
+  out[trimws(vapply(kv, `[`, "", 1L))] <- val   # 同名键：后出现的覆盖前面的
   out
 }
 
@@ -395,37 +400,13 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
   if (!identical(mode, "spot"))
     stop("无内标校准目前只支持点分析（mode = 'spot'）。")
 
-  # ---- 读数据库与文件清单（复用核心层）----
-  f_iso <- termite_resource(cfg$file_isotopes, cfg)
-  f_std <- termite_resource(cfg$file_standards, cfg)
-  if (!file.exists(f_iso)) stop("找不到同位素原子量/丰度表：", f_iso)
-  if (!file.exists(f_std)) stop("找不到参考物质推荐值表：", f_std)
-  iso_tab <- termite_read_isotopes(f_iso)
-  std_tab <- termite_read_standards(f_std)
-
-  plan <- termite_plan(cfg)
-  if (!nrow(plan)) stop("没有找到任何原始数据文件。")
-  sample_files <- plan$path[plan$kind == "sample"]
-  ref_files    <- plan$path[plan$kind == "ref"]
-  ref_rm       <- plan$material[plan$kind == "ref"]
+  # ---- 读数据库、列文件清单、读表头（与内标法共用同一段前奏）----
+  P <- .termite_prepare(cfg)
+  iso_tab <- P$iso_tab; std_tab <- P$std_tab; plan <- P$plan
+  sample_files <- P$sample_files; ref_files <- P$ref_files; ref_rm <- P$ref_rm
+  isotopes <- P$isotopes; elements <- P$elements; db_key <- P$db_key
   if (!length(sample_files)) stop("没有识别出任何样品文件。")
   if (!length(ref_files))    stop("没有识别出任何定标参考物质。")
-
-  # ---- 表头 / 元素 / 原子量 ----
-  hdr_src <- if (length(sample_files)) sample_files[1] else ref_files[1]
-  isotopes <- termite_read_header(hdr_src, cfg)
-  if (!is.null(cfg$resolution) && nzchar(cfg$resolution))
-    isotopes <- trimws(gsub(cfg$resolution, "", isotopes, fixed = TRUE))
-  isotopes_db <- termite_normalize_isotope(isotopes)
-  elements <- element_of(isotopes)
-
-  # 同位素 → 参考表列名（复用别名 + 同元素借用）
-  iso_alias <- termite_read_alias(termite_resource(cfg$file_iso_alias, cfg))
-  db_key <- termite_apply_alias(isotopes_db, iso_alias)
-  for (k in which(!db_key %in% names(iso_tab))) {
-    same <- names(iso_tab)[element_of(names(iso_tab)) == elements[k]]
-    if (length(same)) db_key[k] <- same[1]
-  }
   if (any(!db_key %in% names(iso_tab)))
     stop("同位素原子量/丰度表中缺少：",
          paste(unique(isotopes[!db_key %in% names(iso_tab)]), collapse = ", "))
@@ -437,14 +418,16 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
   Ab <- as.numeric(iso_tab["isotope_abundance", db_key])
   names(Ab) <- isotopes
 
-  # 每个元素挑「丰度最高的同位素」作为代表通道
-  keep_iso <- logical(length(isotopes)); names(keep_iso) <- isotopes
-  for (el in unique(elements)) {
-    ii <- which(elements == el)
-    keep_iso[ii[which.max(Ab[ii])]] <- TRUE
-  }
-  main_iso <- isotopes[keep_iso]
-  main_el  <- elements[keep_iso]
+  # 每个元素只留一个代表通道：取丰度最高的那个同位素（含量相同，噪声最小）
+  groups <- split(seq_along(isotopes), factor(elements, levels = unique(elements)))
+  pick   <- vapply(groups, function(ii) {
+    j <- which.max(Ab[ii])                    # 丰度表缺该元素时退化成第一个通道
+    ii[if (length(j)) j else 1L]
+  }, 1L)
+  # sort 保证列的顺序跟着表头走（分组序不等于表头序）
+  pick     <- sort(pick)
+  main_iso <- isotopes[pick]
+  main_el  <- elements[pick]
   M_el <- Aw[main_iso]; names(M_el) <- main_el
 
   # 价态
@@ -465,18 +448,15 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
     s2 <- min(s2, nrow(m)); s1 <- min(s1, s2)
     b2 <- min(b2, nrow(m)); b1 <- min(b1, b2)
     bl <- .blank_stat(m, b1, b2, cfg$background)
-    net <- m[s1:s2, , drop = FALSE] -
-           matrix(bl, nrow = s2 - s1 + 1L, ncol = ncol(m), byrow = TRUE)
+    net <- m[s1:s2, , drop = FALSE] - .stretch_row(bl, s2 - s1 + 1L)
     if (isTRUE(cfg$clip_negative)) net[!is.na(net) & net < 0] <- 0
     mu <- colMeans(net, na.rm = TRUE)
     names(mu) <- isotopes
     mu
   }
-  ref_cps <- lapply(ref_files, .net_cps)
-  ref_conc <- lapply(ref_rm, function(rm)
-    as.numeric(std_tab[rm, db_key]))
-  names(ref_conc) <- NULL
-  for (k in seq_along(ref_conc)) names(ref_conc[[k]]) <- isotopes
+  # 推荐值直接按参考表列名（= db_key）取值，再统一换成文件里读到的同位素名
+  ref_cps  <- lapply(ref_files, .net_cps)
+  ref_conc <- lapply(ref_rm, function(rm) setNames(as.numeric(std_tab[rm, db_key]), isotopes))
   lambda <- termite_sensitivity(ref_cps, ref_conc)
 
   # ---- 参考物质质量覆盖率诊断 ----

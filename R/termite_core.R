@@ -114,6 +114,25 @@ termite_defaults <- function(mode = c("spot", "line")) {
 
 .termite_sep <- function(machine) if (identical(machine, "Element2")) "\t" else ","
 
+#' 定位仓库根目录（含 R/termite_core.R 的那层）
+#'
+#' Shiny 服务端与其它入口都可能从任意工作目录启动，也可能以
+#' `Rscript --file=...` 方式启动。按「脚本所在目录 → 其上一级 → 当前目录」
+#' 依次试探，命中即用。
+#' @return 根目录路径；找不到时返回 NA
+.termite_find_root <- function() {
+  args <- commandArgs(trailingOnly = FALSE)
+  scr <- sub("^--file=", "", args[grepl("^--file=", args)])
+  cand <- character(0)
+  if (length(scr)) {
+    d <- dirname(normalizePath(scr[1], mustWork = FALSE))
+    cand <- c(d, dirname(d))
+  }
+  cand <- c(cand, getwd())
+  hit <- cand[vapply(cand, function(d) file.exists(file.path(d, "R", "termite_core.R")), TRUE)]
+  if (length(hit)) hit[1] else getwd()   # 兜底：至少给出一个可用目录
+}
+
 #' 取得一个文件的「有效格式描述」
 #'
 #' cfg$auto_detect = TRUE  → 用 termite_probe() 按内容自动识别
@@ -196,21 +215,12 @@ termite_read_raw <- function(path, cfg, n_sweeps = NA_integer_) {
   list(time = termite_sanitize(df[[1]]), values = m)
 }
 
-#' 读同位素原子量/丰度表（AtomGewIsoAbund_NIST.csv，制表符分隔）
-termite_read_isotopes <- function(path) {
-  df <- utils::read.table(path, header = TRUE, sep = "\t", check.names = FALSE,
-                          colClasses = "character", quote = "", comment.char = "")
-  rn <- as.character(df[[1]])
-  df[[1]] <- NULL
-  num <- as.data.frame(lapply(df, termite_sanitize), check.names = FALSE)
-  names(num) <- names(df)
-  row.names(num) <- rn
-  num
-}
-
-#' 读参考物质推荐值表（Standards_GeoReM.csv，逗号分隔，首列是物质名）
-termite_read_standards <- function(path) {
-  df <- utils::read.table(path, header = TRUE, sep = ",", row.names = 1,
+#' 读「首列是行名、其余列全是数值」的资源表
+#'
+#' 同位素原子量表与参考物质推荐值表结构一样，只是分隔符不同。
+#' 统一在这里处理：逐列转数值，并补回被 lapply 丢掉的行名。
+.termite_read_table <- function(path, sep) {
+  df <- utils::read.table(path, header = TRUE, sep = sep, row.names = 1L,
                           check.names = FALSE, colClasses = "character",
                           quote = "", comment.char = "")
   num <- as.data.frame(lapply(df, termite_sanitize), check.names = FALSE)
@@ -218,6 +228,12 @@ termite_read_standards <- function(path) {
   row.names(num) <- row.names(df)     # lapply 会丢行名，必须补回
   num
 }
+
+#' 读同位素原子量/丰度表（AtomGewIsoAbund_NIST.csv，制表符分隔，首列是行名）
+termite_read_isotopes <- function(path) .termite_read_table(path, "\t")
+
+#' 读参考物质推荐值表（Standards_GeoReM.csv，逗号分隔，首列是物质名）
+termite_read_standards <- function(path) .termite_read_table(path, ",")
 
 
 # -----------------------------------------------------------------------------
@@ -244,6 +260,13 @@ termite_read_standards <- function(path) {
   if (ncol(m) == 0L) return(numeric(0))
   apply(m, 2L, stats::sd, na.rm = na.rm)
 }
+
+#' 把一个「逐同位素的向量」摊成 n 行矩阵，用于矩阵间的逐元素乘除
+#'
+#' 归算链里反复出现「n×p 矩阵与长度 p 的向量逐列相乘/相除」。R 的按列回收
+#' 规则在这里很容易出错（长度 p 的向量会被整列循环，而不是每列对应一个值），
+#' 所以统一走这里显式铺开，避免每处都手写 byrow = TRUE。
+.stretch_row <- function(v, n) matrix(v, nrow = n, ncol = length(v), byrow = TRUE)
 
 #' 把 Inf / -Inf / NaN 统一成 NA
 #'
@@ -280,7 +303,14 @@ element_of <- function(isotopes) sub("^[0-9]*([A-Za-z]{1,2}).*$", "\\1", isotope
 #'                      例如仪器写 `SRM 610`、推荐值表里叫 `NIST610`。
 #'
 #' 返回 data.frame，每行一个文件：
-#'   file, path, sample_name, kind(sample|ref|qc), material, format, n_iso
+#'   file, path, sample_name, kind(sample|ref|qc), material, format, n_iso,
+#'   ok（探测是否成功）, msg（失败原因或提示）
+.empty_plan <- function() data.frame(
+  file = character(0), path = character(0), sample_name = character(0),
+  kind = character(0), material = character(0), format = character(0),
+  n_iso = integer(0), ok = logical(0), msg = character(0),
+  stringsAsFactors = FALSE)
+
 termite_plan <- function(cfg, probe_all = TRUE) {
   alias <- termite_read_alias(termite_resource(cfg$file_alias, cfg))
 
@@ -291,12 +321,15 @@ termite_plan <- function(cfg, probe_all = TRUE) {
                                                 full.names = TRUE)) else character(0)
     rf <- character(0); rm_ <- character(0)
     if (dir.exists(rdir)) {
-      for (rm in cfg$ref_materials) {
-        f <- sort(list.files(rdir, pattern = rm, full.names = TRUE))
-        f <- f[grepl(cfg$file_pattern, f)]
-        if (!length(f)) warning(sprintf("参考物质目录中没有匹配 '%s' 的文件。", rm), call. = FALSE)
-        rf <- c(rf, f); rm_ <- c(rm_, rep(rm, length(f)))
-      }
+    # 每种参考物质可能对应多个文件（多次剥蚀），用 lengths() 把种类名摊回去
+    hit <- lapply(cfg$ref_materials, function(rm) {
+      f <- sort(list.files(rdir, pattern = rm, full.names = TRUE))
+      f <- f[grepl(cfg$file_pattern, f)]
+      if (!length(f)) warning(sprintf("参考物质目录中没有匹配 '%s' 的文件。", rm), call. = FALSE)
+      f
+    })
+    rf  <- unlist(hit)
+    rm_ <- rep(cfg$ref_materials, lengths(hit))
     }
     mk <- function(paths, kind, mat) {
       if (!length(paths)) return(NULL)
@@ -308,10 +341,9 @@ termite_plan <- function(cfg, probe_all = TRUE) {
                  stringsAsFactors = FALSE)
     }
     out <- rbind(mk(sf, "sample", NA_character_), mk(rf, "ref", rm_))
-    if (is.null(out)) out <- data.frame(
-      file = character(0), path = character(0), sample_name = character(0),
-      kind = character(0), material = character(0), format = character(0),
-      n_iso = integer(0), stringsAsFactors = FALSE)
+    if (is.null(out)) return(.empty_plan())
+    out$ok  <- TRUE      # 目录里列出的文件不逐个探测，视为可用
+    out$msg <- ""
     return(out)
   }
 
@@ -323,7 +355,7 @@ termite_plan <- function(cfg, probe_all = TRUE) {
     sc <- termite_scan_dir(cfg$dir, pattern = cfg$file_pattern, probe_all = probe_all)
     sc <- sc[!grepl("TERMITEScriptFolder|Results", sc$path), , drop = FALSE]
   }
-  if (!nrow(sc)) return(sc[, c("file", "path", "sample_name"), drop = FALSE][0, ])
+  if (!nrow(sc)) return(.empty_plan())
   raw_name <- ifelse(is.na(sc$sample_name) | !nzchar(sc$sample_name),
                      tools::file_path_sans_ext(sc$file), sc$sample_name)
   key      <- termite_apply_alias(raw_name, alias)
@@ -346,6 +378,8 @@ termite_plan <- function(cfg, probe_all = TRUE) {
   data.frame(file = sc$file, path = sc$path, sample_name = raw_name,
              kind = kind, material = material,
              format = sc$format, n_iso = sc$n_iso,
+             # 探测失败的文件在这里就被标记出来，下游才能统一拦截
+             ok = sc$ok, msg = sc$msg,
              stringsAsFactors = FALSE)
 }
 
@@ -360,10 +394,10 @@ termite_plan <- function(cfg, probe_all = TRUE) {
 #' @param files     文件名向量（与 mats 同序）
 #' @param lod_ref   LoD 折算所借用的参考物质名（推荐值表里的行名）。
 #'                  原脚本固定用 RefMat1；这里显式传入，flat 布局下取第一个定标物质。
-#' @param cfg, header, iso_tab, std_tab  见上
+#' @param std_tab 参考物质推荐值表（LoD 折算要借它的推荐含量）
 #' @param i1,i2,i3,i4  空白/信号区间（文件真实行号）
 #' @return list，含逐文件的 LoD、内标归一矩阵、离群过滤均值等
-.reduce_block <- function(mats, files, lod_ref, cfg, isotopes, iso_tab, std_tab, i1, i2, i3, i4) {
+.reduce_block <- function(mats, files, lod_ref, cfg, isotopes, std_tab, i1, i2, i3, i4) {
   n  <- length(mats)
   p  <- length(isotopes)
   p1 <- .to_matrix_row(i1, cfg$signal_line)
@@ -393,7 +427,7 @@ termite_plan <- function(cfg, probe_all = TRUE) {
     bl <- .blank_stat(m, p1, p2, cfg$background)
     blank[[k]] <- bl
 
-    x  <- m[s1:s2k, , drop = FALSE] - matrix(bl, nrow = nrow_win, ncol = p, byrow = TRUE)
+    x  <- m[s1:s2k, , drop = FALSE] - .stretch_row(bl, nrow_win)
     if (isTRUE(cfg$clip_negative)) x[!is.na(x) & x < 0] <- 0
     net[[k]] <- x
 
@@ -402,37 +436,36 @@ termite_plan <- function(cfg, probe_all = TRUE) {
     sd3 <- 3 * .col_sds(m[p1:p2, , drop = FALSE], na.rm = TRUE)
     if (isTRUE(cfg$legacy_lod)) sd3[!is.na(sd3) & sd3 == 0] <- 1   # 原脚本的补丁
     mu  <- colMeans(x, na.rm = TRUE)
-    lod_ref_iso <- std_tab[lod_ref, isotopes]
-    lodm[k, ] <- (sd3 / mu) * as.numeric(lod_ref_iso)
+    lodm[k, ] <- (sd3 / mu) * as.numeric(std_tab[lod_ref, isotopes])
 
     # ---- 内标归一 ----------------------------------------------------------
     denom <- m[s1:s2k, is_idx] - bl[is_idx]
     isn[[k]] <- .nan_to_na(x / denom)     # 内标计数=背景时会产生 0/0
 
     # ---- 离群检验：阈值 = 中位数 ± m% × 中位数 -----------------------------
-    med <- apply(isn[[k]], 2L, stats::median, na.rm = TRUE)
-    hi  <- matrix(med * (1 + m_pct), nrow = nrow_win, ncol = p, byrow = TRUE)
-    lo  <- matrix(med * (1 - m_pct), nrow = nrow_win, ncol = p, byrow = TRUE)
-    keep <- isn[[k]]
+    #    逐文件逐元素做一次整矩阵比较，不套内层循环
     if (isTRUE(cfg$outlier_test)) {
-      drop_mask <- !is.na(keep) & (keep > hi | keep < lo)
+      med <- .col_medians(isn[[k]], na.rm = TRUE)
+      drop_mask <- !is.na(isn[[k]]) &
+        (isn[[k]] > .stretch_row(med * (1 + m_pct), nrow_win) |
+         isn[[k]] < .stretch_row(med * (1 - m_pct), nrow_win))
       frac[k, ] <- colMeans(drop_mask)
+      keep <- isn[[k]]
       keep[drop_mask] <- NA
     } else {
       frac[k, ] <- 0
+      keep <- isn[[k]]
     }
     means[k, ] <- colMeans(keep, na.rm = TRUE)
 
     # ---- 相对标准偏差（用未过滤的内标归一值）-------------------------------
-    sdv <- .col_sds(isn[[k]], na.rm = TRUE)
-    muv <- colMeans(isn[[k]], na.rm = TRUE)
-    rsd[k, ] <- sdv / muv
+    rsd[k, ] <- .col_sds(isn[[k]], na.rm = TRUE) / colMeans(isn[[k]], na.rm = TRUE)
   }
 
   dimnames(means) <- dimnames(lodm) <- dimnames(frac) <- dimnames(rsd) <- list(basename(files), isotopes)
   names(blank) <- basename(files)
   list(lod = lodm, mean_is_norm = means, outlier_frac = frac, rsd = rsd,
-       blank = blank, net = net, is_norm = isn, m_pct = m_pct)
+       blank = blank, net = net, is_norm = isn)
 }
 
 
@@ -464,17 +497,18 @@ termite_plan <- function(cfg, probe_all = TRUE) {
 #'
 #' @param cfg       termite_defaults() 产出的参数列表（可先修改）
 #' @param progress  可选回调 function(i, n, msg)，用于 Shiny 进度条
-#' @return 结构化的结果对象（见文件尾部的字段说明）
-termite_run <- function(cfg, progress = NULL) {
-  stopifnot(is.list(cfg))
-  mode <- cfg$mode
-  say  <- function(i, n, msg) if (!is.null(progress)) progress(i, n, msg)
-
-  pj <- function(...) file.path(cfg$dir, ...)
+#' 归算前的公共准备
+#'
+#' 内标法（termite_run）与无内标公式法（termite_run_formula）的前奏完全一样：
+#' 读两张资源表 → 列文件清单并按 kind 分类 → 读表头 → 把表头里的同位素
+#' 对齐到参考表的列名。以前这两处各写一遍，改一处很容易漏掉另一处。
+#'
+#' @return list(iso_tab, std_tab, plan, sample_files, ref_files, ref_rm,
+#'              qc_files, qc_rm, sample_names, isotopes, isotopes_db,
+#'              db_key, elements, iso_substitutions)
+.termite_prepare <- function(cfg) {
   if (!dir.exists(cfg$dir)) stop("数据目录不存在：", cfg$dir)
 
-  # ---- 4.1 读取参考数据库 -------------------------------------------------
-  say(1, 8, "读取同位素与参考物质数据库")
   f_iso <- termite_resource(cfg$file_isotopes, cfg)
   f_std <- termite_resource(cfg$file_standards, cfg)
   if (!file.exists(f_iso)) stop("找不到同位素原子量/丰度表：", f_iso)
@@ -482,55 +516,72 @@ termite_run <- function(cfg, progress = NULL) {
   iso_tab <- termite_read_isotopes(f_iso)
   std_tab <- termite_read_standards(f_std)
 
-  # ---- 4.2 文件清单与分类 -------------------------------------------------
   plan <- termite_plan(cfg)
   if (!nrow(plan)) stop("没有找到任何原始数据文件，请检查目录与文件名过滤。")
-  sample_files <- plan$path[plan$kind == "sample"]
-  ref_files    <- plan$path[plan$kind == "ref"]
-  ref_rm       <- plan$material[plan$kind == "ref"]
-  qc_files     <- plan$path[plan$kind == "qc"]
-  qc_rm        <- plan$material[plan$kind == "qc"]
-  sample_names <- plan$sample_name[plan$kind == "sample"]
+  # 探测失败的文件在这里就拦掉，否则会带着残缺的通道一路走到归算才炸
+  bad <- plan$file[!plan$ok %in% TRUE]
+  if (length(bad)) stop("以下文件无法识别格式：", paste(bad, collapse = ", "))
 
-  errs <- plan$file[!plan$ok %in% TRUE]
-  if (length(errs)) stop("以下文件无法识别格式：", paste(errs, collapse = ", "))
+  # 表头取自第一个样品文件；没有样品时退一步用第一个参考物质文件
+  sf <- plan$path[plan$kind == "sample"]
+  rf <- plan$path[plan$kind == "ref"]
+  header_src <- if (length(sf)) sf[1] else rf[1]
+  isotopes <- termite_read_header(header_src, cfg)
+  # Element2 的表头带分辨率后缀（Ca43(LR)），统一剥掉；对其他格式是无操作
+  if (!is.null(cfg$resolution) && nzchar(cfg$resolution))
+    isotopes <- trimws(gsub(cfg$resolution, "", isotopes, fixed = TRUE))
+  elements <- element_of(isotopes)
+
+  # 同位素 → 参考表列名：先查别名表，再退一步借用同元素的其他同位素列
+  iso_alias <- termite_read_alias(termite_resource(cfg$file_iso_alias, cfg))
+  db_key <- termite_apply_alias(termite_normalize_isotope(isotopes), iso_alias)
+  miss   <- which(!db_key %in% names(iso_tab))
+  borrow <- names(iso_tab)[match(elements[miss], element_of(names(iso_tab)))]
+  got    <- !is.na(borrow)
+  db_key[miss[got]] <- borrow[got]
+  sub <- sprintf("%s → 借用 %s", isotopes[miss[got]], borrow[got])
+  if (length(sub))
+    warning("参考表里没有这些同位素，已借用同元素的其他同位素列。\n",
+            "  推荐值表按元素含量填写，同一元素的各同位素列取值相同，因此数值等价：\n  ",
+            paste(unique(sub), collapse = "\n  "), call. = FALSE)
+
+  list(iso_tab = iso_tab, std_tab = std_tab, plan = plan, header_src = header_src,
+       sample_files = sf, sample_names = plan$sample_name[plan$kind == "sample"],
+       ref_files = rf, ref_rm = plan$material[plan$kind == "ref"],
+       qc_files = plan$path[plan$kind == "qc"], qc_rm = plan$material[plan$kind == "qc"],
+       isotopes = isotopes, isotopes_db = termite_normalize_isotope(isotopes),
+       db_key = db_key, elements = elements, iso_substitutions = sub)
+}
+
+#' @return 结构化的结果对象（见文件尾部的字段说明）
+termite_run <- function(cfg, progress = NULL) {
+  stopifnot(is.list(cfg))
+  mode <- cfg$mode
+  say  <- function(i, n, msg) if (!is.null(progress)) progress(i, n, msg)
+
+  # ---- 4.1 读取参考数据库与文件清单 ---------------------------------------
+  say(1, 8, "读取同位素与参考物质数据库")
+  P <- .termite_prepare(cfg)
+  iso_tab <- P$iso_tab; std_tab <- P$std_tab; plan <- P$plan
+  sample_files <- P$sample_files; sample_names <- P$sample_names
+  ref_files <- P$ref_files; ref_rm <- P$ref_rm
+  qc_files <- P$qc_files; qc_rm <- P$qc_rm
+  isotopes <- P$isotopes; isotopes_db <- P$isotopes_db
+  db_key <- P$db_key; elements <- P$elements
+  iso_substitutions <- P$iso_substitutions
+
   if (!length(ref_files))
     stop("没有识别出任何参与定标的参考物质。\n",
          "  · flat 布局：请把参考物质名称填进「参考物质」清单；\n",
          "  · dir 布局：请检查参考物质目录与名称。")
 
-  # ---- 4.3 读表头 ---------------------------------------------------------
-  say(2, 8, "读取同位素表头")
-  hdr_src <- if (length(sample_files)) sample_files[1] else ref_files[1]
-  isotopes    <- termite_read_header(hdr_src, cfg)          # 保持文件里的写法
-  # Element2 的表头带分辨率后缀（Ca43(LR)），统一剥掉；对其他格式是无操作
-  if (!is.null(cfg$resolution) && nzchar(cfg$resolution))
-    isotopes <- trimws(gsub(cfg$resolution, "", isotopes, fixed = TRUE))
-  isotopes_db <- termite_normalize_isotope(isotopes)        # 查数据库用的写法
+  # ---- 4.2 表头与内标列 ---------------------------------------------------
   if (!isTRUE(cfg$auto_detect) && length(isotopes) != cfg$n_iso)
     stop(sprintf("表头读出 %d 个同位素，与设定的 n_iso = %d 不一致。",
                  length(isotopes), cfg$n_iso))
-  elements <- element_of(isotopes)
-  is_idx   <- as.integer(cfg$column_IS) - 1L
+  is_idx <- as.integer(cfg$column_IS) - 1L
   if (is_idx < 1L || is_idx > length(isotopes))
     stop("内标列号 column_IS 超出同位素范围。")
-
-  # ---- 同位素 → 参考表列名：先查别名表，再退一步用同元素的其他同位素 ----
-  iso_alias <- termite_read_alias(termite_resource(cfg$file_iso_alias, cfg))
-  db_key <- termite_apply_alias(isotopes_db, iso_alias)
-  substitutes <- character(0)
-  for (k in which(!db_key %in% names(iso_tab))) {
-    same <- names(iso_tab)[element_of(names(iso_tab)) == elements[k]]
-    if (length(same)) {
-      db_key[k] <- same[1]
-      substitutes <- c(substitutes, sprintf("%s → 借用 %s", isotopes[k], same[1]))
-    }
-  }
-  if (length(substitutes))
-    warning("参考表里没有这些同位素，已借用同元素的其他同位素列。\n",
-            "  推荐值表按元素含量填写，同一元素的各同位素列取值相同，因此数值等价：\n  ",
-            paste(unique(substitutes), collapse = "\n  "), call. = FALSE)
-  iso_substitutions <- substitutes
 
   # 参考数据库按表头取子集
   miss_i <- setdiff(db_key, names(iso_tab))
@@ -592,8 +643,8 @@ termite_run <- function(cfg, progress = NULL) {
   # 原脚本输出逐位可比），flat 布局用文件里解析出的样品名。
   sid <- if (identical(cfg$layout, "flat")) sample_names else basename(sample_files)
 
-  # 表头一致性检查
-  for (f in setdiff(c(sample_files, ref_files, qc_files), hdr_src)) {
+  # 表头一致性检查：以第一条为准，其余文件不同只提示（仍按主表头处理）
+  for (f in setdiff(c(sample_files, ref_files, qc_files), P$header_src)) {
     h <- tryCatch(termite_read_header(f, cfg), error = function(e) NULL)
     if (!is.null(h) && !identical(h, isotopes))
       warning(sprintf("%s 的表头与主表头不同（%d vs %d 列），已按主表头处理。",
@@ -610,7 +661,7 @@ termite_run <- function(cfg, progress = NULL) {
   # ---- 4.5 参考物质的 RSF -------------------------------------------------
   say(5, 8, "归算参考物质并计算 RSF")
   ref_block <- .reduce_block(ref_mat, basename(ref_files), lod_ref_rm, cfg, isotopes,
-                             iso_sub, std_sub,
+                             std_sub,
                              cfg$first_blank, cfg$last_blank,
                              cfg$first_signal, cfg$last_signal)
 
@@ -625,12 +676,12 @@ termite_run <- function(cfg, progress = NULL) {
 
   # 参考物质：内标浓度用推荐值
   ref_is_conc <- as.numeric(std_sub[ref_rm, is_iso])
-  uncorr_ref  <- ref_block$mean_is_norm * matrix(iso_fac, nrow = length(ref_files),
-                                                 ncol = length(isotopes), byrow = TRUE) * ref_is_conc
+  uncorr_ref  <- ref_block$mean_is_norm * .stretch_row(iso_fac, length(ref_files)) * ref_is_conc
 
   rsf_file <- uncorr_ref / cert_ref
   rsf_file[!is.na(rsf_file) & rsf_file == 0] <- NA
-  ref_label <- if (identical(cfg$layout, "flat")) plan$sample_name[plan$kind == "ref"] else basename(ref_files)
+  ref_label <- if (identical(cfg$layout, "flat"))
+    plan$sample_name[plan$kind == "ref"] else basename(ref_files)
   dimnames(rsf_file) <- list(ref_label, isotopes)
   rsf <- colMeans(rsf_file, na.rm = TRUE)
 
@@ -639,7 +690,7 @@ termite_run <- function(cfg, progress = NULL) {
   # 混进定标会引入偏差。
   qc_block <- if (length(qc_files)) {
     say(5, 8, "归算质量监控样品")
-    .reduce_block(qc_mat, basename(qc_files), lod_ref_rm, cfg, isotopes, iso_sub, std_sub,
+    .reduce_block(qc_mat, basename(qc_files), lod_ref_rm, cfg, isotopes, std_sub,
                   cfg$first_blank, cfg$last_blank, cfg$first_signal, cfg$last_signal)
   } else NULL
 
@@ -648,8 +699,7 @@ termite_run <- function(cfg, progress = NULL) {
   .recovery <- function(block, rm_vec, labels) {
     if (is.null(block) || !length(rm_vec)) return(NULL)
     isc <- as.numeric(std_sub[rm_vec, is_iso])
-    u <- block$mean_is_norm *
-         matrix(iso_fac, nrow = length(rm_vec), ncol = length(isotopes), byrow = TRUE) * isc
+    u <- block$mean_is_norm * .stretch_row(iso_fac, length(rm_vec)) * isc
     r <- u / as.matrix(std_sub[rm_vec, , drop = FALSE])
     r[!is.na(r) & r == 0] <- NA
     rec <- sweep(r, 2L, as.numeric(rsf), "/") * 100
@@ -659,7 +709,7 @@ termite_run <- function(cfg, progress = NULL) {
 
   # ---- 4.6 LoD 汇总 ------------------------------------------------------
   mean_block <- if (identical(mode, "spot")) {
-    .reduce_block(sample_mat, basename(sample_files), lod_ref_rm, cfg, isotopes, iso_sub, std_sub,
+    .reduce_block(sample_mat, basename(sample_files), lod_ref_rm, cfg, isotopes, std_sub,
                   cfg$first_blank, cfg$last_blank, cfg$first_signal, cfg$last_signal)
   } else NULL
 
@@ -691,10 +741,8 @@ termite_run <- function(cfg, progress = NULL) {
   # ---- 4.7 分模式出结果 ---------------------------------------------------
   if (identical(mode, "spot")) {
     say(6, 8, "归算样品并套用 RSF")
-    uncorr <- mean_block$mean_is_norm *
-              matrix(iso_fac, nrow = length(sample_files), ncol = length(isotopes), byrow = TRUE) *
-              cfg$is_conc
-    conc <- uncorr / matrix(rsf, nrow = length(sample_files), ncol = length(isotopes), byrow = TRUE)
+    uncorr <- mean_block$mean_is_norm * .stretch_row(iso_fac, length(sample_files)) * cfg$is_conc
+    conc <- uncorr / .stretch_row(rsf, length(sample_files))
     dimnames(conc) <- list(sid, isotopes)
 
     # 逐元素相对标准偏差 → 标记不均匀样品
@@ -704,7 +752,7 @@ termite_run <- function(cfg, progress = NULL) {
 
     conc <- .nan_to_na(conc)
     conc_masked <- conc
-    conc_masked[!is.na(conc_masked) & conc_masked <  matrix(lod_used, nrow(conc), ncol(conc), byrow = TRUE)] <- NA
+    conc_masked[!is.na(conc_masked) & conc_masked < .stretch_row(lod_used, nrow(conc))] <- NA
     conc_masked[!is.na(conc_masked) & conc_masked <= 0] <- NA
     dimnames(conc_masked) <- dimnames(conc)
     res$sample <- list(mean_is_norm = mean_block$mean_is_norm, uncorr = uncorr,
@@ -724,36 +772,38 @@ termite_run <- function(cfg, progress = NULL) {
     names(profiles) <- sid
     for (k in seq_along(sample_files)) {
       m <- sample_mat[[k]]
-      if (f2 > nrow(m)) {
+      # 越界就地截断，但**只改本轮**：原脚本把结果写回循环变量，
+      # 一旦某个文件偏短，后面所有文件都会跟着被截短
+      f2k <- f2
+      if (f2k > nrow(m)) {
         warning(sprintf("样品信号结束行 %d 超出 %s 的实际行数 %d，已截断。",
                         cfg$last_signal_ls, basename(sample_files[k]), nrow(m) + cfg$signal_line - 1L),
                 call. = FALSE)
-        f2 <- nrow(m)
+        f2k <- nrow(m)
       }
+      nrow_win <- f2k - f1 + 1L
       bl  <- .blank_stat(m, b1, b2, cfg$background)
-      bgc <- m[f1:f2, , drop = FALSE] -
-             matrix(bl, nrow = f2 - f1 + 1L, ncol = length(isotopes), byrow = TRUE)
+      bgc <- m[f1:f2k, , drop = FALSE] - .stretch_row(bl, nrow_win)
       if (isTRUE(cfg$clip_negative)) bgc[!is.na(bgc) & bgc < 0] <- 0
 
       ratio <- .nan_to_na(bgc / bgc[, is_idx])
-      conc  <- ratio *
-               matrix(iso_fac, nrow = nrow(bgc), ncol = length(isotopes), byrow = TRUE) *
-               cfg$is_conc /
-               matrix(rsf,     nrow = nrow(bgc), ncol = length(isotopes), byrow = TRUE)
+      conc  <- ratio * .stretch_row(iso_fac, nrow_win) * cfg$is_conc /
+               .stretch_row(rsf, nrow_win)
 
       t_all <- sample_raw[[k]]$time
       if (isTRUE(cfg$legacy_time_axis)) {
-        t_axis <- t_all[seq_len(f2 - f1 + 1L)]                       # 原脚本：从文件开头取
+        t_axis <- t_all[seq_len(nrow_win)]                          # 原脚本：从文件开头取
       } else {
-        t_axis <- t_all[f1:f2]                                       # 修正：与数据行对齐
-        t_axis <- t_axis - t_axis[1]                                 # 以激光开剥时刻为 0
+        t_axis <- t_all[f1:f2k]                                     # 修正：与数据行对齐
+        t_axis <- t_axis - t_axis[1]                                # 以激光开剥时刻为 0
       }
-      dist <- t_axis * cfg$laser_speed / 1000                        # s · µm/s → mm
+      dist <- t_axis * cfg$laser_speed / 1000                       # s · µm/s → mm
 
       conc <- .nan_to_na(conc)
       masked <- conc
-      masked[!is.na(masked) & masked < matrix(lod_used, nrow(conc), ncol(conc), byrow = TRUE)] <- NA
-      masked[!is.na(masked) & masked < 0] <- NA     # 原脚本此处保留 0 值
+      masked[!is.na(masked) & masked < .stretch_row(lod_used, nrow(conc))] <- NA
+      # 与点分析不同：线扫描不把负值截成 0，所以这里只清负的，0 值原样保留
+      masked[!is.na(masked) & masked < 0] <- NA
       dimnames(masked) <- dimnames(conc) <- NULL
       colnames(conc) <- colnames(masked) <- isotopes
 

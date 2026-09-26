@@ -5,18 +5,22 @@
 #  不启动 Shiny 也能跑：
 #
 #    Rscript tools/run_termite.R \
-#      --dir "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA" \
+#      --dir "G:/.../20230806CKDA" \
 #      --layout flat --auto \
 #      --ref "SRM 610,SRM 612" --qc "BIR-1G,BCR-2G,BHVO-2G" \
 #      --is 182W --is-conc 638500 \
 #      --blank 25,60 --signal 70,118 \
-#      --out "G:/.../20230806CKDA_TERMITE结果"
+#      --out "G:/.../结果"
 #
 #  参数一律写成 --key value 或 --key=value；带逗号的值用引号包住。
+#  交互界面请改用 shiny::runApp(".")。
 # =============================================================================
 
 .args <- commandArgs(trailingOnly = TRUE)
 
+#' 解析命令行参数 → list
+#'
+#' `--key value` 与 `--key=value` 都支持；不带值的开关（--auto）记成 "TRUE"。
 parse_args <- function(a) {
   out <- list()
   i <- 1L
@@ -46,7 +50,7 @@ split2 <- function(x, default) {
   as.integer(v)
 }
 
-flag <- function(x) !is.null(x) && (identical(x, "TRUE") || identical(x, "true") || identical(x, "1"))
+flag <- function(x) !is.null(x) && x %in% c("TRUE", "true", "1")
 
 a <- parse_args(.args)
 if (is.null(a$dir)) {
@@ -58,13 +62,16 @@ if (is.null(a$dir)) {
   quit(status = 2L)
 }
 
-# 定位仓库根目录（本脚本在 <root>/tools/ 下）
+options(encoding = "UTF-8")
+
+# 本脚本在 <仓库根>/tools/ 下，往上一级即是含 R/termite_core.R 的那层。
+# 这段必须是入口内联的：R/ 里的函数此刻还没装载。
 .root <- local({
-  a2 <- commandArgs(trailingOnly = FALSE)
-  f <- sub("^--file=", "", a2[grep("^--file=", a2)])
-  if (length(f)) dirname(dirname(normalizePath(f[1]))) else getwd()
+  args <- commandArgs(trailingOnly = FALSE)
+  scr  <- sub("^--file=", "", args[grepl("^--file=", args)])
+  if (length(scr)) dirname(dirname(normalizePath(scr[1], mustWork = FALSE))) else getwd()
 })
-for (f in list.files(file.path(.root, "R"), pattern = "\\.[Rr]$", full.names = TRUE))
+for (f in list.files(file.path(.root, "R"), pattern = "[.][Rr]$", full.names = TRUE))
   source(f, encoding = "UTF-8")
 
 cfg <- termite_defaults(if (!is.null(a$mode) && a$mode == "line") "line" else "spot")
@@ -79,8 +86,10 @@ if (!is.null(a$filter)) cfg$file_pattern <- a$filter
 if (!is.null(a$`sample-filter`)) cfg$sample_filter <- a$`sample-filter`
 if (!is.null(a$`is-conc`)) cfg$is_conc <- as.numeric(a$`is-conc`)
 if (!is.null(a$col))       cfg$column_IS <- as.integer(a$col)
-if (!is.null(a$blank))  { v <- split2(a$blank,  c(5L, 124L)); cfg$first_blank  <- v[1]; cfg$last_blank  <- v[2] }
-if (!is.null(a$signal)) { v <- split2(a$signal, c(180L, 440L)); cfg$first_signal <- v[1]; cfg$last_signal <- v[2] }
+if (!is.null(a$blank))  { v <- split2(a$blank,  c(5L, 124L))
+                          cfg$first_blank  <- v[1]; cfg$last_blank  <- v[2] }
+if (!is.null(a$signal)) { v <- split2(a$signal, c(180L, 440L))
+                          cfg$first_signal <- v[1]; cfg$last_signal <- v[2] }
 if (flag(a$`no-outlier`)) cfg$outlier_test <- FALSE
 if (flag(a$`no-clip`))    cfg$clip_negative <- FALSE
 if (flag(a$`legacy-lod`)) cfg$legacy_lod <- TRUE
@@ -157,7 +166,8 @@ writeLines(c(
   sprintf("内标        : %s (文件第 %d 列)，样品内标含量 %g µg/g",
           res$is_iso, cfg$column_IS, cfg$is_conc),
   sprintf("定标参考物质: %s", paste(unique(res$files$ref_rm), collapse = ", ")),
-  sprintf("质量监控    : %s", if (length(res$files$qc)) paste(unique(res$files$qc_rm), collapse = ", ") else "无"),
+  sprintf("质量监控    : %s", if (length(res$files$qc))
+    paste(unique(res$files$qc_rm), collapse = ", ") else "无"),
   sprintf("空白窗口    : %d - %d", cfg$first_blank, cfg$last_blank),
   sprintf("信号窗口    : %d - %d", cfg$first_signal, cfg$last_signal),
   sprintf("背景算法    : %s", cfg$background),

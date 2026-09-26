@@ -2,26 +2,42 @@
 #  TERMITE Shiny —— 服务端
 # =============================================================================
 
-.termite_app_root <- function() {
-  if (file.exists(file.path("R", "termite_core.R"))) return(getwd())
-  a <- commandArgs(trailingOnly = FALSE)
-  f <- sub("^--file=", "", a[grep("^--file=", a)])
-  if (length(f)) return(dirname(normalizePath(f[1])))
-  getwd()
+#' 跑一段归算，把它的 error / warning 收集起来交给界面显示
+#'
+#' Shiny 里归算失败不能让整个应用崩掉：error 包成 termite_error 交给下游
+#' reactive 判别，warning 收集到 attr(out, "warnings") 后统一上屏。
+#' 注意 warning 累计用的是函数内的可变环境，不能写成 `warn <<-`，
+#' 那样会跳到全局环境去找同名变量。
+.run_capture <- function(expr) {
+  box <- new.env(parent = emptyenv())
+  box$warn <- character(0)
+  out <- withCallingHandlers(
+    tryCatch(force(expr),
+             error = function(e) structure(list(error = conditionMessage(e)),
+                                           class = "termite_error")),
+    warning = function(w) {
+      box$warn <- c(box$warn, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  attr(out, "warnings") <- box$warn
+  out
 }
 
-#' 行号输入 → 整数向量；空值返回 NA
-.as_line <- function(id, input) {
-  v <- suppressWarnings(as.numeric(input[[id]]))
-  if (!length(v) || is.na(v)) NA_integer_ else as.integer(v)
+#' 表格上屏前的收敛：截掉多余行、数值保留 6 位有效数字
+#'
+#' 只影响屏幕展示；导出 CSV 走的是全量、原始精度的表。
+.display_table <- function(d, max_rows = 200L) {
+  if (nrow(d) > max_rows) d <- d[seq_len(max_rows), , drop = FALSE]
+  num <- vapply(d, is.numeric, logical(1))
+  d[num] <- lapply(d[num], function(x) ifelse(is.na(x), NA, signif(x, 6)))
+  d
 }
+
 termite_server <- function(input, output, session) {
 
-  root <- .termite_app_root()
+  root <- .termite_find_root()
 
   # ---------------------------------------------------------------- 参数组装
-  is_spot <- reactive(identical(input$mode, "spot"))
-
   # 模式切换时，自动把目录与默认积分窗口换成对应模式的默认值
   observeEvent(input$mode, {
     d <- termite_defaults(input$mode)
@@ -109,19 +125,10 @@ termite_server <- function(input, output, session) {
 
   result <- eventReactive(run_flag(), {
     c0 <- cfg()
-    warn <- character(0)
-    out <- withCallingHandlers(
-      tryCatch(
-        withProgress(message = "归算中…", value = 0, {
-          termite_run(c0, progress = function(i, n, msg)
-            incProgress(1 / max(1, n), detail = msg))
-        }),
-        error = function(e) structure(list(error = conditionMessage(e)), class = "termite_error")
-      ),
-      warning = function(w) { warn <<- c(warn, conditionMessage(w)); invokeRestart("muffleWarning") }
-    )
-    attr(out, "warnings") <- warn
-    out
+    .run_capture(withProgress(message = "归算中…", value = 0, {
+      termite_run(c0, progress = function(i, n, msg)
+        incProgress(1 / max(1, n), detail = msg))
+    }))
   })
 
   ok <- reactive(!inherits(result(), "termite_error") && !is.null(result()$isotopes))
@@ -325,10 +332,7 @@ termite_server <- function(input, output, session) {
   output$result_tbl <- renderTable({
     req(ok()); r <- result()
     d <- termite_table(r)
-    if (nrow(d) > 200) d <- d[seq_len(200), , drop = FALSE]
-    num <- vapply(d, is.numeric, logical(1))
-    d[num] <- lapply(d[num], function(x) ifelse(is.na(x), NA, signif(x, 6)))
-    d
+    .display_table(d)
   }, striped = TRUE, bordered = TRUE, digits = 6, na = "")
 
   output$dl_result <- downloadHandler(
@@ -400,7 +404,7 @@ termite_server <- function(input, output, session) {
     updateNumericInput(session, "signal_line", value = s$probe$signal_line)
     updateNumericInput(session, "n_iso",       value = s$probe$n_iso)
     if (!is.na(s$n_data)) {                       # 给一组可用的起始积分窗口
-      lo <- s$probe$signal_line; hi <- lo + s$n_data - 1L
+      lo <- s$probe$signal_line
       updateNumericInput(session, "first_blank",  value = lo)
       updateNumericInput(session, "last_blank",   value = lo + max(1L, round(s$n_data * 0.15)) - 1L)
       updateNumericInput(session, "first_signal", value = lo + round(s$n_data * 0.35))
@@ -507,18 +511,9 @@ termite_server <- function(input, output, session) {
                        class = "termite_error"))
     if (is.null(input$formula_mineral) || !nzchar(input$formula_mineral))
       return(structure(list(error = "请先在左侧选择矿物。"), class = "termite_error"))
-    warn <- character(0)
-    out <- withCallingHandlers(
-      tryCatch(
-        withProgress(message = "公式法归算中…", value = 0, {
-          termite_run_formula(c0, mineral = input$formula_mineral)
-        }),
-        error = function(e) structure(list(error = conditionMessage(e)), class = "termite_error")
-      ),
-      warning = function(w) { warn <<- c(warn, conditionMessage(w)); invokeRestart("muffleWarning") }
-    )
-    attr(out, "warnings") <- warn
-    out
+    .run_capture(withProgress(
+      message = "公式法归算中…", value = 0,
+      termite_run_formula(c0, mineral = input$formula_mineral)))
   })
 
   formula_ok <- reactive(
@@ -608,10 +603,7 @@ termite_server <- function(input, output, session) {
     th <- .formula_theory(r$mineral)
     th <- intersect(th, names(d))
     if (length(th)) names(d)[match(th, names(d))] <- paste0(th, " *")
-    if (nrow(d) > 200) d <- d[seq_len(200), , drop = FALSE]
-    num <- vapply(d, is.numeric, logical(1))
-    d[num] <- lapply(d[num], function(x) ifelse(is.na(x), NA, signif(x, 6)))
-    d
+    .display_table(d)
   }, striped = TRUE, bordered = TRUE, digits = 6, na = "")
 
   output$dl_formula <- downloadHandler(
@@ -639,7 +631,8 @@ termite_server <- function(input, output, session) {
       "- 点分析：原脚本可直接运行。",
       "- 线扫描：原脚本有 3 处致命/类型错误，先做最小修补后才跑通；修补后输出与仓库自带的",
       "  `Results_*_linescan.csv` 逐位一致。",
-      "- 判定标准：NA 模式必须完全一致，且最大相对偏差 ≤ 1e-9（RSF/LoD 因为基准文件带舍入，放宽到 1e-12 的舍入后比较）。",
+      "- 判定标准：NA 模式必须完全一致，且最大相对偏差 ≤ 1e-9",
+      "  （RSF/LoD 的基准文件带舍入，放宽到 1e-12 的舍入后比较）。",
       sep = "\n")))
   })
 

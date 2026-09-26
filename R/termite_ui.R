@@ -189,7 +189,8 @@ termite_ui <- function() {
 
           tabPanel("原始信号", br(),
                    fluidRow(
-                     column(4, selectInput("raw_which", "看哪一组", c("参考物质" = "ref", "样品" = "sample"))),
+                     column(4, selectInput("raw_which", "看哪一组",
+                                           c("参考物质" = "ref", "样品" = "sample"))),
                      column(4, uiOutput("raw_file_ui")),
                      column(4, checkboxInput("raw_log", "纵轴对数", TRUE))
                    ),
