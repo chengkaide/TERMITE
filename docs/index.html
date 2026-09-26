@@ -58,14 +58,20 @@
   .lead p{color:var(--ink)}
 
   /* ---------- cards ---------- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
   .card{background:linear-gradient(180deg,#FFFFFF,#F7F6F2);border:1px solid var(--line);
         border-radius:14px;padding:20px 22px;box-shadow:0 1px 2px rgba(38,37,31,.03)}
   .card h3{margin-top:0}
-  .card .ico{font-size:22px;margin-bottom:8px}
   .card p{font-size:14px;margin:0;color:var(--ink2)}
-  .card .tag{display:inline-block;font-size:11.5px;color:var(--tea);background:var(--teabg);
-        border:1px solid var(--tealine);border-radius:999px;padding:1px 10px;margin-top:10px}
+
+  /* ---------- 主要功能（简洁列表，无图标） ---------- */
+  .flist{list-style:none;margin:0;padding:0;
+         display:grid;grid-template-columns:1fr 1fr;gap:0 30px}
+  @media(max-width:760px){.flist{grid-template-columns:1fr}}
+  .flist li{font-size:14.5px;color:var(--ink2);line-height:1.75;
+            padding:9px 0 9px 16px;border-bottom:1px solid var(--line);position:relative}
+  .flist li::before{content:"";position:absolute;left:0;top:18px;width:6px;height:6px;
+            border-radius:50%;background:var(--purline)}
+  .flist b{color:var(--ink);font-weight:600;margin-right:8px}
 
   /* ---------- compare ---------- */
   .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -153,7 +159,7 @@
   <div class="inner">
     <span class="brand">TERMITE<i> · </i>LA-ICP-MS 数据归算</span>
     <div class="links">
-      <a href="#features">特性</a>
+      <a href="#features">功能</a>
       <a href="#methods">定标策略</a>
       <a href="#quickstart">快速开始</a>
       <a href="#docs">文档</a>
@@ -197,42 +203,17 @@
      本项目保留全部算法定义，重写为<b>可复用、可验证、可交互</b>的形式——首次打开即用示例数据自动跑一遍。</p>
   </div>
 
-  <!-- ===================== 核心能力 ===================== -->
+  <!-- ===================== 主要功能 ===================== -->
   <section id="features">
-    <h2>核心能力</h2>
-    <div class="grid">
-      <div class="card">
-        <div class="ico">📥</div>
-        <h3>数据导入</h3>
-        <p>按内容识别 Qtegra（iCAP）、Agilent、Element2 等格式，自动找表头行、数据行、分隔符、同位素个数，不依赖固定行号；样品名从文件里读。</p>
-      </div>
-      <div class="card">
-        <div class="ico">🎯</div>
-        <h3>点分析归算</h3>
-        <p>净信号 → 内标归一 → 同位素换算 → RSF 定标 → 检出限截断，七步链给出 µg/g 浓度，附带离群检验与回收率校核。</p>
-      </div>
-      <div class="card">
-        <div class="ico">📈</div>
-        <h3>线扫描剖面</h3>
-        <p>逐点归算成浓度-距离剖面，可输出任意元素对的<b>比值剖面</b>（如 Zr/Hf、Nb/Ta），比单独看浓度更抗基体漂移。</p>
-      </div>
-      <div class="card">
-        <div class="ico">🧪</div>
-        <h3>无内标公式法</h3>
-        <p>用矿物结构式（电荷平衡 / 固定配位阳离子）替代内标元素，<b>省去 EPMA</b>。支持白钨矿、锡石、锆石、磷灰石、云母、绿柱石、电气石。</p>
-        <span class="tag">新增</span>
-      </div>
-      <div class="card">
-        <div class="ico">📉</div>
-        <h3>检出限与离群</h3>
-        <p>LoD 图/表、中位数 ±m% 离群剔除、负值截断等质量控制一应俱全，每步假设与陷阱都写进了文档。</p>
-      </div>
-      <div class="card">
-        <div class="ico">✅</div>
-        <h3>逐位一致性自检</h3>
-        <p>一键重跑与原脚本的比对：点分析 40×12、线扫描 6748×12 单元格最大相对偏差均为 <b>0</b>，NA 模式完全一致。</p>
-      </div>
-    </div>
+    <h2>主要功能</h2>
+    <ul class="flist">
+      <li><b>数据导入</b>按内容识别 Qtegra（iCAP）、Agilent、Element2 等格式，样品名从文件里读。</li>
+      <li><b>点分析归算</b>内标归一 → 同位素换算 → RSF 定标，输出 µg/g 浓度。</li>
+      <li><b>线扫描剖面</b>逐点归算为浓度–距离剖面，可输出元素对比值（如 Zr/Hf、Nb/Ta）。</li>
+      <li><b>无内标公式法</b>用矿物结构式替代内标元素，支持白钨矿、锡石、锆石、磷灰石、云母、绿柱石、电气石。</li>
+      <li><b>质量检查</b>检出限截断、中位数 ±m% 离群剔除、参考物质回收率。</li>
+      <li><b>一致性自检</b>一键与原脚本对拍：点分析、线扫描最大相对偏差为 0，NA 模式一致。</li>
+    </ul>
   </section>
 
   <!-- ===================== 两种定标策略 ===================== -->
