@@ -142,6 +142,12 @@ CSS = """
   .mbody tbody tr:last-child td{border-bottom:0}
   .mbody td code{font-size:12.5px}
 
+  /* 图（md 里内联的 SVG） */
+  .mbody figure{margin:26px 0 30px}
+  .mbody figure svg{display:block;width:100%;height:auto;border:1px solid var(--line);
+       border-radius:12px;background:#fff;box-shadow:0 2px 8px rgba(38,37,31,.05)}
+  .mbody figcaption{color:var(--ink3);font-size:12.5px;margin-top:10px;line-height:1.75}
+
   /* ---------- footer ---------- */
   footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--line);
        color:var(--ink3);font-size:13.5px;line-height:1.8}
@@ -243,7 +249,7 @@ def convert(md_name: str, html_name: str) -> dict:
     <h1>{title}</h1>
     <p class="sub">{desc}</p>
     <div class="meta">由 <code>docs/{md_name}</code> 自动生成 ·
-      <a href="{md_name}">查看 Markdown 源文件</a></div>
+      <a href="https://github.com/chengkaide/TERMITE/blob/master/docs/{md_name}">在 GitHub 上查看源文件</a></div>
   </div>
 
   <div class="layout">

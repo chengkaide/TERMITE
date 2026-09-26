@@ -74,6 +74,50 @@ Si（z=4）→ `l_Si = 1 + (4/2)·(15.999/28.0855) = 2.139`，即 SiO₂/Si。
 AYCF 原文说的是后者（把测得元素写成氧化物、归一化到 100%），
 本实现直接做前者（电荷平衡），更省一步、也更容易把"测不准的元素"从和里抠出去。
 
+<figure>
+<svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="250" fill="#FFFFFF"/>
+<text x="12" y="17" font-size="12.5" fill="#26251F" font-weight="700">化学式因子 F_f：用电荷平衡换算出那个“共同缩放因子”</text>
+<text x="12" y="33" font-size="10.5" fill="#8A8880">白钨矿 CaWO₄：化学式里 n_O = 4，所以所有阳离子的电荷总和必须等于 2·n_O = 8</text>
+
+<line x1="560" y1="46" x2="560" y2="156" stroke="#7D4A0A" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="566" y="52" font-size="10.5" fill="#7D4A0A" font-weight="600">目标 2·n_O = 8.00</text>
+
+<text x="12" y="64" font-size="11" fill="#26251F" font-weight="600">① 缩放前</text>
+<text x="80" y="64" font-size="10.5" fill="#5F5E5A">测得 Σ n_i·z_i = 6.41　（各元素摩尔数 × 价态，相对单位）</text>
+<rect x="80" y="70" width="288" height="26" rx="3" fill="#4C43AE"/>
+<rect x="368" y="70" width="84" height="26" rx="3" fill="#7A72D0"/>
+<rect x="452" y="70" width="13" height="26" rx="3" fill="#AFA9EC"/>
+<text x="90" y="87" font-size="10.5" fill="#FFFFFF">W⁶⁺</text>
+<text x="378" y="87" font-size="10.5" fill="#FFFFFF">Ca²⁺</text>
+<text x="474" y="87" font-size="9" fill="#FFFFFF">微量</text>
+<text x="470" y="112" font-size="10" fill="#8A8880" text-anchor="end">6.41</text>
+
+<path d="M 470 122 L 552 122" stroke="#7D4A0A" stroke-width="1.2" fill="none"/>
+<path d="M 546 118 L 552 122 L 546 126 Z" fill="#7D4A0A"/>
+<text x="511" y="140" font-size="10.5" fill="#7D4A0A" font-weight="600" text-anchor="middle">× F_f = 8.00 / 6.41 = 1.248</text>
+
+<text x="12" y="164" font-size="11" fill="#26251F" font-weight="600">② 缩放后</text>
+<text x="80" y="164" font-size="10.5" fill="#5F5E5A">apfu_i = n_i · F_f，于是 Σ apfu_i·z_i = 8.00 ✓</text>
+<rect x="80" y="170" width="359" height="26" rx="3" fill="#0E6650"/>
+<rect x="439" y="170" width="105" height="26" rx="3" fill="#2FA383"/>
+<rect x="544" y="170" width="16" height="26" rx="3" fill="#9FE1CB"/>
+<text x="90" y="187" font-size="10.5" fill="#FFFFFF">W⁶⁺  apfu 0.998</text>
+<text x="449" y="187" font-size="10.5" fill="#FFFFFF">Ca²⁺  apfu 1.000</text>
+<text x="574" y="212" font-size="10" fill="#8A8880">8.00</text>
+
+<line x1="80" y1="222" x2="620" y2="222" stroke="#D8D6CC"/>
+<text x="80" y="236" font-size="9.5" fill="#8A8880">0</text>
+<text x="200" y="236" font-size="9.5" fill="#8A8880" text-anchor="middle">2</text>
+<text x="320" y="236" font-size="9.5" fill="#8A8880" text-anchor="middle">4</text>
+<text x="440" y="236" font-size="9.5" fill="#8A8880" text-anchor="middle">6</text>
+<text x="560" y="236" font-size="9.5" fill="#8A8880" text-anchor="middle">8</text>
+<text x="350" y="248" font-size="9.5" fill="#8A8880" text-anchor="middle">阳离子电荷总和 Σ n_i·z_i（相对单位）</text>
+</svg>
+<figcaption>图 1　化学式因子 F_f 的作用：不管测得的元素比例整体偏大还是偏小，电荷守恒要求它必须恰好落在 2·n_O 上，这个约束就定出唯一的缩放因子。图上 6.41 → 8.00 是示意数值。</figcaption>
+</figure>
+
+
 ---
 
 ## 3. 灵敏度 λ：多参考物质回归
@@ -97,9 +141,104 @@ C'_i = cps_i · λ_i
 它还不是真实浓度——因为剥蚀产率、基体差异等因素会让 `C'_i` 整体偏大或偏小一个**共同因子**。
 矿物结构式约束就是用来定这个共同因子的。
 
+<figure>
+<svg viewBox="0 0 680 232" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="232" fill="#FFFFFF"/>
+<text x="12" y="17" font-size="12.5" fill="#26251F" font-weight="700">灵敏度 λ：把 cps 换算成“未归一化浓度”的斜率</text>
+<text x="12" y="33" font-size="10.5" fill="#8A8880">每个点是一个定标参考物质：横轴是它的信号 cps，纵轴是它的推荐值含量</text>
+
+<line x1="70" y1="188" x2="620" y2="188" stroke="#D8D6CC"/>
+<line x1="70" y1="52" x2="70" y2="188" stroke="#D8D6CC"/>
+<text x="340" y="212" font-size="10" fill="#8A8880" text-anchor="middle">参考物质信号 cps_i^rm</text>
+<text x="20" y="120" font-size="10" fill="#8A8880" transform="rotate(-90 20 120)" text-anchor="middle">推荐值 C_i^rm (µg/g)</text>
+
+<line x1="70" y1="188" x2="596" y2="60" stroke="#4C43AE" stroke-width="1.8"/>
+<text x="352" y="96" font-size="11" fill="#4C43AE" font-weight="600" transform="rotate(-24.3 352 96)">过原点拟合：斜率 = λ_i</text>
+
+<circle cx="180" cy="149" r="5.5" fill="#0E6650"/>
+<circle cx="300" cy="122" r="5.5" fill="#0E6650"/>
+<circle cx="430" cy="94" r="5.5" fill="#0E6650"/>
+<circle cx="540" cy="72" r="5.5" fill="#0E6650"/>
+<text x="180" y="167" font-size="9.5" fill="#5F5E5A" text-anchor="middle">NIST610</text>
+<text x="300" y="140" font-size="9.5" fill="#5F5E5A" text-anchor="middle">NIST612</text>
+<text x="430" y="112" font-size="9.5" fill="#5F5E5A" text-anchor="middle">MACS3</text>
+<text x="540" y="90" font-size="9.5" fill="#5F5E5A" text-anchor="middle">GSD-1G</text>
+
+<circle cx="70" cy="188" r="3.5" fill="#26251F"/>
+<text x="76" y="200" font-size="9.5" fill="#26251F">原点</text>
+
+<rect x="70" y="42" width="292" height="30" rx="5" fill="#F8F7F4"/>
+<text x="82" y="61" font-size="11" fill="#26251F">λ_i = Σ C_i^rm ÷ Σ cps_i^rm　（对各参考物质求和后再相除）</text>
+</svg>
+<figcaption>图 2　λ 是所有参考物质“总推荐值 ÷ 总信号”。先求和再相除，等价于做一次以信号大小为权重的加权回归，比起先算单点比值再平均，高含量参考物质不会被低信号的噪声点拉偏。</figcaption>
+</figure>
+
+
 ---
 
-## 4. 三种归算模式
+## 4. 四种归算模式
+
+<figure>
+<svg viewBox="0 0 680 236" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="236" fill="#FFFFFF"/>
+<text x="12" y="17" font-size="12.5" fill="#26251F" font-weight="700">四种归算模式：绿色是真正测出来的，琥珀色是按结构式补出来的</text>
+<text x="12" y="33" font-size="10.5" fill="#8A8880">补出来的元素不是测量结果——它们来自矿物化学式本身对配位数的硬性约束</text>
+<rect x="146" y="44" width="26" height="14" rx="7" fill="#0E6650"/>
+<text x="178" y="55" font-size="9.5" fill="#5F5E5A">ICP-MS 实测（参与归一化）</text>
+<rect x="320" y="44" width="26" height="14" rx="7" fill="#A2681C"/>
+<text x="352" y="55" font-size="9.5" fill="#5F5E5A">按结构式理论补（不参与求和）</text>
+<rect x="12" y="54" width="656" height="44" rx="8" fill="#F8F7F4"/>
+<text x="24" y="66" font-size="11" fill="#4C43AE" font-weight="700">anhydrous</text>
+<text x="24" y="79" font-size="9.5" fill="#8A8880">CaWO₄ · 白钨矿 / 锡石 / 锆石</text>
+<rect x="152" y="60" width="30" height="22" rx="11" fill="#0E6650"/><text x="167" y="75" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Ca</text>
+<rect x="187" y="60" width="30" height="22" rx="11" fill="#0E6650"/><text x="202" y="75" font-size="10.5" fill="#FFFFFF" text-anchor="middle">W</text>
+<rect x="222" y="60" width="30" height="22" rx="11" fill="#0E6650"/><text x="237" y="75" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Sr</text>
+<rect x="257" y="60" width="30" height="22" rx="11" fill="#0E6650"/><text x="272" y="75" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Mn</text>
+<rect x="292" y="60" width="39" height="22" rx="11" fill="#0E6650"/><text x="311" y="75" font-size="10.5" fill="#FFFFFF" text-anchor="middle">REE</text>
+<text x="338" y="74" font-size="9" fill="#8A8880">→</text>
+<rect x="352" y="60" width="57" height="22" rx="11" fill="#A2681C"/><text x="380" y="75" font-size="10.5" fill="#FFFFFF" text-anchor="middle">— 无 —</text>
+<text x="664" y="74" font-size="9.5" fill="#5F5E5A" text-anchor="end">全部阳离子都测，电荷归一到 2·n_O</text>
+<rect x="12" y="104" width="656" height="44" rx="8" fill="#F8F7F4"/>
+<text x="24" y="116" font-size="11" fill="#4C43AE" font-weight="700">apatite</text>
+<text x="24" y="129" font-size="9.5" fill="#8A8880">Ca₅(PO₄)₃F · 氟磷灰石</text>
+<rect x="152" y="110" width="30" height="22" rx="11" fill="#0E6650"/><text x="167" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Ca</text>
+<rect x="187" y="110" width="30" height="22" rx="11" fill="#0E6650"/><text x="202" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Sr</text>
+<rect x="222" y="110" width="30" height="22" rx="11" fill="#0E6650"/><text x="237" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Mn</text>
+<rect x="257" y="110" width="30" height="22" rx="11" fill="#0E6650"/><text x="272" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Si</text>
+<rect x="292" y="110" width="30" height="22" rx="11" fill="#0E6650"/><text x="307" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">As</text>
+<text x="329" y="124" font-size="9" fill="#8A8880">→</text>
+<rect x="343" y="110" width="34" height="22" rx="11" fill="#A2681C"/><text x="360" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">P</text>
+<rect x="382" y="110" width="34" height="22" rx="11" fill="#A2681C"/><text x="399" y="125" font-size="10.5" fill="#FFFFFF" text-anchor="middle">F</text>
+<text x="664" y="124" font-size="9.5" fill="#5F5E5A" text-anchor="end">Ca 位 = 5 → P = 3 − Si − As，F = 1</text>
+<rect x="12" y="154" width="656" height="44" rx="8" fill="#F8F7F4"/>
+<text x="24" y="166" font-size="11" fill="#4C43AE" font-weight="700">mica</text>
+<text x="24" y="179" font-size="9.5" fill="#8A8880">XY₃Z₄O₁₀(OH)₂ · 云母</text>
+<rect x="152" y="160" width="30" height="22" rx="11" fill="#0E6650"/><text x="167" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Na</text>
+<rect x="187" y="160" width="30" height="22" rx="11" fill="#0E6650"/><text x="202" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Mg</text>
+<rect x="222" y="160" width="30" height="22" rx="11" fill="#0E6650"/><text x="237" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Al</text>
+<rect x="257" y="160" width="30" height="22" rx="11" fill="#0E6650"/><text x="272" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Si</text>
+<rect x="292" y="160" width="30" height="22" rx="11" fill="#0E6650"/><text x="307" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Fe</text>
+<text x="329" y="174" font-size="9" fill="#8A8880">→</text>
+<rect x="343" y="160" width="34" height="22" rx="11" fill="#A2681C"/><text x="360" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">K</text>
+<rect x="382" y="160" width="34" height="22" rx="11" fill="#A2681C"/><text x="399" y="175" font-size="10.5" fill="#FFFFFF" text-anchor="middle">OH</text>
+<text x="664" y="174" font-size="9.5" fill="#5F5E5A" text-anchor="end">Y+Z 位电荷 = 21，X 位 apfu 和 = 1 → K = 1 − Σ</text>
+<rect x="12" y="204" width="656" height="44" rx="8" fill="#F8F7F4"/>
+<text x="24" y="216" font-size="11" fill="#4C43AE" font-weight="700">fixed</text>
+<text x="24" y="229" font-size="9.5" fill="#8A8880">Be₃Al₂Si₆O₁₈ · 绿柱石 / 电气石</text>
+<rect x="152" y="210" width="30" height="22" rx="11" fill="#0E6650"/><text x="167" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Al</text>
+<rect x="187" y="210" width="30" height="22" rx="11" fill="#0E6650"/><text x="202" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Si</text>
+<rect x="222" y="210" width="30" height="22" rx="11" fill="#0E6650"/><text x="237" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Na</text>
+<rect x="257" y="210" width="30" height="22" rx="11" fill="#0E6650"/><text x="272" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Fe</text>
+<rect x="292" y="210" width="30" height="22" rx="11" fill="#0E6650"/><text x="307" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Li</text>
+<text x="329" y="224" font-size="9" fill="#8A8880">→</text>
+<rect x="343" y="210" width="34" height="22" rx="11" fill="#A2681C"/><text x="360" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Be</text>
+<rect x="382" y="210" width="66" height="22" rx="11" fill="#A2681C"/><text x="415" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">B / Si</text>
+<rect x="453" y="210" width="34" height="22" rx="11" fill="#A2681C"/><text x="470" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">OH</text>
+<text x="664" y="224" font-size="9.5" fill="#5F5E5A" text-anchor="end">固定配位阳离子按化学计量扣除后再归一</text>
+</svg>
+<figcaption>图 3　四种模式的区别只在一件事：<b>哪些元素被排除出电荷求和</b>。排除的原因各不相同——P 电离能太高、F 不电离、K 在层间位分馏、Be 太轻，ICP-MS 都测不准；偏偏这些元素在化学式里是定量的，于是反过来用化学式把它们算出来。</figcaption>
+</figure>
+
 
 ### 4.1 无水矿物（anhydrous）—— 电荷归一化
 
@@ -228,19 +367,160 @@ tab <- termite_formula_table(res)        # 导出成数据框
 
 ---
 
+## 6.1 实测对照：一批白钨矿，两种方法差多少
+
+纸上谈完原理，直接上一批真实数据说话：**某白钨矿批次，40 个有效测点**
+（`19SH-43` 10 个、`19SH-63` 5 个、`19SH-Calc-Sch` 20 个、`19SH-7` 5 个），
+参考物质 SRM 610 / 612 定标，其余条件（剥蚀信号窗口、离群判据、推荐值表）两法完全一致，
+唯一差别就是**归一化用谁**——内标法用 W 的含量 638500 µg/g，公式法用 CaWO₄ 的电荷平衡。
+
+### 先看那个被"钉死"的元素
+
+<figure>
+<svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="300" fill="#FFFFFF"/>
+<text x="12" y="18" font-size="12.5" fill="#26251F" font-weight="700">同一批 40 个白钨矿测点，两种方法给出的 W 含量</text>
+<line x1="62" y1="241.6" x2="662" y2="241.6" stroke="#D8D6CC" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="56" y="245.1" font-size="10.5" fill="#8A8880" text-anchor="end">500000</text>
+<line x1="62" y1="169.8" x2="662" y2="169.8" stroke="#D8D6CC" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="56" y="173.2" font-size="10.5" fill="#8A8880" text-anchor="end">550000</text>
+<line x1="62" y1="97.9" x2="662" y2="97.9" stroke="#D8D6CC" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="56" y="101.4" font-size="10.5" fill="#8A8880" text-anchor="end">600000</text>
+<line x1="62" y1="26.0" x2="662" y2="26.0" stroke="#D8D6CC" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="56" y="29.5" font-size="10.5" fill="#8A8880" text-anchor="end">650000</text>
+<line x1="62" y1="256" x2="662" y2="256" stroke="#D8D6CC"/>
+<rect x="62" y="41.5" width="600" height="2" fill="#4C43AE"/>
+<text x="68" y="36.5" font-size="11" fill="#4C43AE" font-weight="600">内标法：全部 = 638500（固定值，等于输入的 C_IS）</text>
+<g><circle cx="69.5" cy="75.6" r="3" fill="#0E6650"/><circle cx="84.5" cy="71.0" r="3" fill="#0E6650"/><circle cx="99.5" cy="73.6" r="3" fill="#0E6650"/><circle cx="114.5" cy="79.5" r="3" fill="#0E6650"/><circle cx="129.5" cy="82.2" r="3" fill="#0E6650"/><circle cx="144.5" cy="233.1" r="3" fill="#0E6650"/><circle cx="159.5" cy="64.9" r="3" fill="#0E6650"/><circle cx="174.5" cy="63.5" r="3" fill="#0E6650"/><circle cx="189.5" cy="62.8" r="3" fill="#0E6650"/><circle cx="204.5" cy="62.7" r="3" fill="#0E6650"/><circle cx="219.5" cy="66.0" r="3" fill="#0E6650"/><circle cx="234.5" cy="71.0" r="3" fill="#0E6650"/><circle cx="249.5" cy="68.9" r="3" fill="#0E6650"/><circle cx="264.5" cy="67.7" r="3" fill="#0E6650"/><circle cx="279.5" cy="65.1" r="3" fill="#0E6650"/><circle cx="294.5" cy="72.8" r="3" fill="#0E6650"/><circle cx="309.5" cy="66.0" r="3" fill="#0E6650"/><circle cx="324.5" cy="64.2" r="3" fill="#0E6650"/><circle cx="339.5" cy="60.9" r="3" fill="#0E6650"/><circle cx="354.5" cy="64.7" r="3" fill="#0E6650"/><circle cx="369.5" cy="66.6" r="3" fill="#0E6650"/><circle cx="384.5" cy="62.5" r="3" fill="#0E6650"/><circle cx="399.5" cy="60.3" r="3" fill="#0E6650"/><circle cx="414.5" cy="68.4" r="3" fill="#0E6650"/><circle cx="429.5" cy="67.5" r="3" fill="#0E6650"/><circle cx="444.5" cy="65.7" r="3" fill="#0E6650"/><circle cx="459.5" cy="65.4" r="3" fill="#0E6650"/><circle cx="474.5" cy="66.8" r="3" fill="#0E6650"/><circle cx="489.5" cy="65.5" r="3" fill="#0E6650"/><circle cx="504.5" cy="64.7" r="3" fill="#0E6650"/><circle cx="519.5" cy="62.9" r="3" fill="#0E6650"/><circle cx="534.5" cy="68.8" r="3" fill="#0E6650"/><circle cx="549.5" cy="62.5" r="3" fill="#0E6650"/><circle cx="564.5" cy="64.4" r="3" fill="#0E6650"/><circle cx="579.5" cy="66.8" r="3" fill="#0E6650"/><circle cx="594.5" cy="80.2" r="3" fill="#0E6650"/><circle cx="609.5" cy="69.3" r="3" fill="#0E6650"/><circle cx="624.5" cy="77.4" r="3" fill="#0E6650"/><circle cx="639.5" cy="74.6" r="3" fill="#0E6650"/><circle cx="654.5" cy="73.1" r="3" fill="#0E6650"/></g>
+<circle cx="144.5" cy="233.1" r="5" fill="none" stroke="#9B2B2B" stroke-width="1.5"/>
+<text x="144.5" y="224.1" font-size="10" fill="#9B2B2B" text-anchor="middle">异常测点</text>
+<text x="68" y="278.0" font-size="11" fill="#0E6650" font-weight="600">公式法：独立算出的真实分布（505929 ~ 626166）</text>
+<text x="12" y="294.0" font-size="10.5" fill="#8A8880">样品序号 →</text>
+</svg>
+<figcaption>图 4　同一个测点、同一份原始信号，两种方法给出的 W。内标法是一条直线——因为 W 就是那个内标，结果被强制等于输入的 638500；公式法没有任何地方用到这个值，算出来的分布才是样品之间的真实差异。</figcaption>
+</figure>
+
+
+| | 内标法 | 公式法 |
+|---|---:|---:|
+| W 的结果个数 | **1 个值**（全部相等） | 40 个值 |
+| W 中位数 | 638500（= 输入的 `C_IS`） | 621701 |
+| W 的取值范围 | 无 | 505929 ~ 626166 |
+| W 的批内 RSD | 0% | 3.00% |
+
+**这张图是整个对照里最要紧的一件事**：内标法对内标元素本身**没有任何信息量**。
+它算出来的 W 就是你在参数里填进去的那个数，一个字节都不差。
+所以"两种方法的 W 差了 2.6%"这句话是不严谨的——
+那 2.6% 是**公式法独立算出的值与 EPMA 标称值之间的差**，
+不是两种归算互相矛盾。真正的交叉验证要看**不参与内标的元素**。
+
+### 再看真正独立算出来的那些元素
+
+Ca 是最要紧的一个：它不是内标，两法各算各的，走完全不同的定标路径（RSF vs λ）。
+
+| 元素 | 含量水平 | 相对差异（中位） | 批内差异范围 |
+|---|---|---:|---:|
+| **Ca** | ~151562 µg/g（主量） | **−1.2%** | −23% ~ +2% |
+| **REE 总量**（La–Lu） | ~76 µg/g | **−1.2%** | −19% ~ +70% |
+| Ca（去掉一个异常测点后 RSD） | — | 内标法 12.3% → 公式法 6.4% | — |
+| Sr | ~1478 µg/g | −3.1% | −25% ~ +9% |
+| Nb | ~2.0 µg/g | −3.2% | −22% ~ +5% |
+| La / Ce / Yb / Lu | 1~12 µg/g | ±0.8% ~ ±2.5% | ±20% ~ ±40% |
+| Mg | ~187 µg/g | **−10.2%** | −27% ~ +37% |
+| Ta | ~0.048 µg/g | **+17.8%** | −15% ~ +43% |
+
+一句话总结：**主量元素和稀土总量稳在 1% 上下，绝大部分微量元素在 ±3% 以内，
+只有 Mg、Ta 这类偏离到 10%~20%。**
+
+### 为什么会差？把每一层原因拆开
+
+**① 最核心的一条：内标法假设"所有样品的内标含量都一样"**
+
+这是内标法内置的、通常不被明说的假设。它把每个样品的整套信号除以该样品的 W 信号，
+再乘上 638500，等价于承认"每个测点的 W 都是同一个值"。
+一旦某个测点的真实 W 偏低，它身上**所有元素**就会被同步抬高——误差是**整套一起搬家**的。
+
+公式法没有这个假设。它按 CaWO₄ 的电荷守恒逐样品独立定标，
+所以能保留样品之间的真实差异。证据就在方差里：
+
+> Ca 的批内 RSD：内标法 **12.3%** → 公式法 **6.4%**
+
+内标法之所以更"散"，正是因为它把 W 的样品间方差传导给了每一个元素。
+
+**② 矿物化学的内在约束，只有公式法看得见**
+
+公式法给出的 W 与 Ca 呈**强负相关（r = −0.97）**——这是 CaWO₄ 位点守恒的必然结果：
+Mg、Sr、Fe 等类质同象替代挤进 Ca 位时，Ca 必须相应减少，电荷才能配平。
+这条约束写在矿物化学式里，公式法天生就把它算进去了；
+而内标法把 W 钉成常数，这条关系被彻底抹平，**结构上不可能看到**。
+
+**③ Mg 为什么偏得最多（−10.2%）**
+
+两个方向叠加：
+
+- **含量分布不均**：白钨矿里的 Mg 相当一部分来自微米级包裹体或后期蚀变，并非晶格成分，
+  LA 剥蚀时"打到没打到"随机性很大；
+- **RSF 的基体跨度**：定标用的是硅酸盐玻璃（SRM 610/612），归算的是白钨矿。
+  Mg 这种轻质量、易受基体效应影响的元素，跨基体后的灵敏度偏差本来就是最大的一档。
+
+**④ Ta 为什么偏高（+17.8%）**
+
+Ta 的含量只有 0.05 µg/g 量级，已经贴着信噪比的地板。
+在这个量级上，λ 的"先求和再相除"虽然稳于单点平均，但低信号端的回归权重小、噪声占比大，
+相对不确定度天然就在百分之几十。Ta 这里差的 18%，
+与其说是两法的系统分歧，不如说是**这个含量水平本身就这么不确定**。
+
+**⑤ 两种方法的"空白"处理完全不同（最容易被误读的一点）**
+
+| | 低于检出限的元素 |
+|---|---|
+| 内标法 | 直接置 NA（本批 2280 个单元格里 **1361 个**是 NA） |
+| 公式法 | **一个 NA 都没有**（0 个） |
+
+公式法目前**没有做检出限截断**（`termite_run_formula()` 的返回值里根本没有 `lod` 一项）。
+所以它的结果表里那些 Li、Be、B 之类的低含量数字**不代表"检出了"**——
+很可能只是噪声。用公式法结果画稀土配分图之前，
+请先自己判断哪些元素在你的样品里是有地质意义的。
+
+### 一个反向的例子：方法的分歧有时是"样品的真相"
+
+`19SH-43-10` 这个测点很特殊：内标法 Ca = 270620 µg/g（其他测点都在 150000 上下），
+公式法 W 也只有 505929（−20.8%）、Ca 比内标法低 23%。
+
+**两种方法独立地都把它标成了异常**——这不是哪一家的 bug，
+而是这个测点大概率打到了别的富 Ca 相（方解石脉、包裹体）或者边缘，
+任何一套自洽的算法都会给出"不匹配"。这类样品应当剔除或重测，而不是挑一个顺眼的结果。
+
+### 小结
+
+| 想干什么 | 用哪个 |
+|---|---|
+| 有可靠的 EPMA 内标值 | 内标法（有 LoD 截断、支持线扫描，更省事） |
+| 没有 EPMA，或不愿为此补实验 | 公式法（要自己对采集结果做 LoD 判断） |
+| 关心主量元素绝对含量 | 两法一致（Ca 差 1.2%），任意选 |
+| 关心**样品之间**的含量差异 | **公式法**（内标法会把差异抹平在这条假设上） |
+| 数据里有一串异常测点 | 两法都跑一遍，交叉印证 |
+
+
 ## 7. 局限与注意事项
 
-1. **λ 仍然依赖参考物质**。省掉的是 EPMA，不是定标本身；样品与参考物质基体差异大时
+1. **公式法目前没有检出限（LoD）截断，这一点和内标法完全不同。**
+   结果表里每个元素都有数值，连 Li、Be、B 这种接近噪声的也不例外——
+   **「有数字」不等于「检出了」**。`termite_run_formula()` 的返回值里根本没有 `lod` 一项，
+   实测这批白钨矿时，同一份结果表里内标法有 1361 个单元格是 NA，公式法一个 NA 都没有。
+   用公式法结果画图或解释之前，请先自己判断哪些元素在你的样品里真正可信（见 §6.1）。
+
+2. **λ 仍然依赖参考物质**。省掉的是 EPMA，不是定标本身；样品与参考物质基体差异大时
    λ 同样不可转移（和 RSF 的局限同源）。
-2. **价态是假设**。默认价态表按地学常规（Fe→Fe²⁺、Mn→Mn²⁺、W→W⁶⁺ 等）写死，
+3. **价态是假设**。默认价态表按地学常规（Fe→Fe²⁺、Mn→Mn²⁺、W→W⁶⁺ 等）写死，
    若你的矿物里元素价态不同（如含 Fe³⁺），电荷平衡会偏，需要覆盖
    `termite_run_formula(cfg, mineral, valence = c(...))`。
-3. **测不准的元素按化学式"理论补"**，它们的浓度是**约束算出来的**，不是测出来的。
+4. **测不准的元素按化学式"理论补"**，它们的浓度是**约束算出来的**，不是测出来的。
    例如磷灰石的 P、云母的 K 与 OH——这些数字的正确性取决于结构式假设对不对。
-4. **X 位 apfu 和 = 1 可能为负**：若测得的其它层间阳离子（Na/Ca/Ba…）apfu 之和 > 1，
+5. **X 位 apfu 和 = 1 可能为负**：若测得的其它层间阳离子（Na/Ca/Ba…）apfu 之和 > 1，
    云母的 `K = 1 − Σ` 会变负，说明该样品根本不是（纯）云母，结果要警惕。
-5. **只支持点分析**。线扫描的无内标校准（逐点 a.p.f.u. 归一化）尚未实现。
-6. **fixed 模式的假设更多，误差更大**（尤其电气石）：
+6. **只支持点分析**。线扫描的无内标校准（逐点 a.p.f.u. 归一化）尚未实现。
+7. **fixed 模式的假设更多，误差更大**（尤其电气石）：
    - 固定阳离子的配位数被**强制等于化学式**——绿柱石 Be=3、电气石 B=3 与 Si=6。
      真实矿物里这些位常被替代（电气石 T 位的 Si↔Al、绿柱石 Be↔Li/Na），
      假设偏差会直接反映到结果里。
