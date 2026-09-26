@@ -533,6 +533,29 @@ termite_server <- function(input, output, session) {
     unique(trimws(th))
   }
 
+  # 参考物质质量覆盖率提示：标样若没测全主量元素（玻璃常见的 Na、Al），
+  # 就不能拿它做「总量归一到 100%」的检验；本方法的 lambda 逐元素回归，不受影响。
+  .formula_coverage_text <- function(cov) {
+    if (is.null(cov) || !length(cov)) return("")
+    cov <- cov[vapply(cov, function(x) is.list(x) && is.finite(x$coverage), TRUE)]
+    if (!length(cov)) return("")
+    parts <- vapply(cov, function(x) {
+      miss <- ""
+      if (length(x$missing_wt_pct))
+        miss <- sprintf("（未测：%s）", paste(
+          sprintf("%s %.2f%%", names(x$missing_wt_pct), x$missing_wt_pct),
+          collapse = "、"))
+      sprintf("%s 覆盖率 %.0f%%（实测 %.1f / 全部 %.1f wt%%）%s",
+              x$rm, x$coverage * 100, x$measured_wt_pct, x$full_wt_pct, miss)
+    }, "")
+    pct <- max(vapply(cov, function(x) x$coverage, 0))
+    head_txt <- if (pct < 0.95)
+      "标样未测全元素，不能归一到 100%（本方法不依赖总量归一，结果不受影响）："
+    else
+      "标样元素覆盖完整："
+    paste0(head_txt, paste(parts, collapse = "；"))
+  }
+
   output$formula_status_bar <- renderUI({
     if (is.null(formula_flag())) return(NULL)
     r <- formula_res()
@@ -550,12 +573,14 @@ termite_server <- function(input, output, session) {
       return(div(class = "warn-box", paste("运行出错：", r$error)))
     mp <- r$mineral
     th <- .formula_theory(mp)
+    cov <- .formula_coverage_text(r$ref_coverage)
     div(class = "ok-box",
         sprintf("矿物：%s（%s，%s）· 模式 %s", mp$name, mp$note, mp$formula, mp$mode),
         br(),
         sprintf("样品 %d 个 × 元素 %d 个；按结构式理论补：%s。",
                 nrow(r$samples), length(r$elements),
-                if (length(th)) paste(th, collapse = ", ") else "无（全部实测）"))
+                if (length(th)) paste(th, collapse = ", ") else "无（全部实测）"),
+        if (nzchar(cov)) list(br(), span(class = "muted", cov)))
   })
 
   output$formula_factor_tbl <- renderTable({

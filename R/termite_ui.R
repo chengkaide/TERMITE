@@ -33,6 +33,7 @@ details.acc > div { padding: 2px 10px 10px 10px; }
             border-radius:4px; font-size:12.5px; margin:8px 0; white-space:pre-wrap; }
 .ok-box { background:#f0fff4; border-left:3px solid #38a169; padding:8px 12px;
           border-radius:4px; font-size:12.5px; margin:8px 0; }
+.muted { color:#64748b; font-size:12px; }
 .code-out { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;
             padding:10px 12px; font-family: Consolas, Menlo, monospace;
             font-size:12px; white-space:pre; overflow-x:auto; }

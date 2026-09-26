@@ -670,6 +670,141 @@ Ta 的含量只有 0.05 µg/g 量级，已经贴着信噪比的地板。
 公式法选 `magnetite`），两者的差就是对该矿物"化学计量假设"的实际检验。
 
 
+## 6.3 参考物质的覆盖率：SRM 玻璃为什么不能归一到 100%
+
+上一节的讨论都默认了一件事：**参考物质的推荐值是准的**。
+但还有一个更前面的问题容易被忽略——**这套通道到底"看得到"标样多少质量？**
+
+答案是：**看不到 100%，通常只有 83% 左右。** 这不是数据质量问题，
+而是"锆石微量元素方法"在方法设计上就不测玻璃的两个主量元素。
+
+### 先看 NIST 官方证书怎么说
+
+NIST SRM 610 / 612 的证书（[610](https://tsapps.nist.gov/srmext/certificates/610.pdf)、
+[612](https://tsapps.nist.gov/srmext/certificates/612.pdf)）写得很明确，
+玻璃基体是**标称（nominal）**组成：
+
+> Sixty-one trace elements were added to the glass support matrix, which has a
+> nominal composition of 72 % SiO₂, 14 % Na₂O, 12 % CaO, and 2 % Al₂O₃ (mass fractions).
+
+也就是说，**Na₂O + Al₂O₃ 一共占 16 wt%**。而锆石微量元素方法
+（典型通道：²⁹Si、⁴³Ca、⁸⁹Y、⁹¹Zr、REE、Hf、Th、U……）
+**根本不接 Na 和 Al**——于是这套通道先天就看不到这 16 wt%。
+
+<figure>
+<svg viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="210" fill="#FFFFFF"/>
+<text x="14" y="18" font-size="12.5" fill="#26251F" font-weight="700">图 6　NIST610 的质量构成（氧化物 wt%）与这套锆石通道能看到的部分</text>
+
+<text x="40" y="44" font-size="10.5" fill="#5F5E5A">整套通道看到 83.4%　·　看不到的 16.6% 几乎全是 Na₂O + Al₂O₃</text>
+
+<!-- 堆叠条：总宽 600px = 100 wt% -->
+<rect x="40" y="56" width="418.2" height="42" fill="#2F855A"/>
+<rect x="458.2" y="56" width="80.4" height="42" fill="#C53030"/>
+<rect x="538.6" y="56" width="69.0" height="42" fill="#2F855A"/>
+<rect x="607.6" y="56" width="11.7" height="42" fill="#C53030"/>
+<rect x="619.3" y="56" width="20.7" height="42" fill="#A0AEC0"/>
+<rect x="40" y="56" width="600" height="42" fill="none" stroke="#26251F" stroke-width="1"/>
+
+<text x="249" y="81" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="700">SiO₂ 69.7</text>
+<text x="498" y="81" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">Na₂O 13.4</text>
+<text x="573" y="81" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">CaO 11.5</text>
+<text x="631" y="74" font-size="8.5" fill="#FFFFFF" text-anchor="middle">Al₂O₃</text>
+<text x="631" y="84" font-size="8.5" fill="#FFFFFF" text-anchor="middle">1.95</text>
+
+<!-- 引线标注 -->
+<line x1="249" y1="98" x2="249" y2="112" stroke="#2F855A" stroke-width="1"/>
+<text x="249" y="126" font-size="10" fill="#2F855A" text-anchor="middle">测得到（²⁹Si）</text>
+<line x1="498" y1="98" x2="498" y2="112" stroke="#C53030" stroke-width="1"/>
+<text x="498" y="126" font-size="10" fill="#C53030" text-anchor="middle">没接 Na 通道</text>
+<line x1="573" y1="98" x2="573" y2="112" stroke="#2F855A" stroke-width="1"/>
+<text x="573" y="126" font-size="10" fill="#2F855A" text-anchor="middle">测得到（⁴³Ca）</text>
+
+<!-- 覆盖区间 -->
+<line x1="40" y1="140" x2="640" y2="140" stroke="#26251F" stroke-width="1"/>
+<rect x="40" y="146" width="418.2" height="10" fill="#2F855A" opacity="0.25"/>
+<rect x="458.2" y="146" width="80.4" height="10" fill="#C53030" opacity="0.25"/>
+<rect x="538.6" y="146" width="69.0" height="10" fill="#2F855A" opacity="0.25"/>
+<rect x="619.3" y="146" width="20.7" height="10" fill="#A0AEC0" opacity="0.25"/>
+<text x="40" y="172" font-size="10.5" fill="#5F5E5A">实测通道折算氧化物总量 83.07 wt%　（参考表全元素口径 99.56 wt%）</text>
+<text x="40" y="188" font-size="10.5" fill="#5F5E5A">缺口 16.49 wt%　≈　NIST 标称的 Na₂O + Al₂O₃ = 16 wt%　✓ 吻合</text>
+<text x="40" y="204" font-size="9.5" fill="#8A8A82">数据：NIST610 行取自 Standards_GeoReM.csv；氧化物折算 ox = C·(1 + (z/2)·M_O/M_i)。</text>
+</svg>
+<figcaption>图 6　玻璃标样的质量有六分之一是这套通道看不见的。绿色是测得到的，红色是没接通道的（Na、Al），灰色是其余微量元素。<b>实测缺口 16.5 wt% 与 NIST 证书标称的 Na₂O + Al₂O₃ = 16 wt% 吻合</b>——两条独立路径得到同一个数。</figcaption>
+</figure>
+
+### 三方对照：标称值 / GeoReM / 本仓库
+
+本仓库 `Standards_GeoReM.csv` 里的 NIST610 / NIST612 取自 GeoReM。
+把它和 NIST 证书的标称值、以及已发表文献引用的 GeoReM 值放在一起对：
+
+**主量元素**（µg/g）
+
+| 组分 | NIST 证书标称 | 折算成元素 | 本仓库 GeoReM | 偏差 |
+|---|---:|---:|---:|---:|
+| SiO₂ | 72 wt% | Si 336 561 | 325 800 | −3.2% |
+| Na₂O | 14 wt% | Na 103 859 | 99 400 | −4.3% |
+| CaO | 12 wt% | Ca 85 764 | 82 200 | −4.2% |
+| Al₂O₃ | 2 wt% | Al 10 585 | 10 300 | −2.7% |
+
+GeoReM 是**实测**值，NIST 标称是**配方**值，两者差 3%～4% 属正常，
+不是错误；用哪个要跟你引用的文献口径一致。
+
+**微量元素**（µg/g，对照一篇 2023 年开放获取文献里引用的同批 GeoReM 值）
+
+| | Li | Na | Mg | Ca | Mn | Fe | Cu | Zn | Sr | Mo | Ba | U |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 610 本仓库 | 468 | 99 400 | 432 | 82 200 | 444 | 458 | 441 | 460 | 515.5 | 417 | 452 | 461.5 |
+| 610 文献 | 468 | 99 415 | 465 | 82 144 | 444 | 458 | 441 | 460 | 515.5 | 417 | 452 | 461.5 |
+| 612 本仓库 | 40.2 | 101 640 | 68 | 85 050 | 38.7 | 51 | 37.8 | 39.1 | 78.4 | 37.4 | 39.3 | 37.4 |
+| 612 文献 | 40.2 | 103 858 | 68 | 85 049.3 | 38.7 | 51 | 37.8 | 39.1 | 78.4 | 37.4 | 39.3 | 37.38 |
+
+12 项里 10 项完全一致；只有 **Mg(610) −7.1%** 和 **Na(612) −2.1%** 对不上，
+属于 GeoReM 不同版本之间的正常漂移。
+
+> **关于 GeoReM 官网**：旧址 `georem.mpch-mainz.gwdg.de` 已迁移到
+> [`georem.earth`](https://georem.earth/)（由 IAG 与 DIGIS 维护）。
+> 本站的 "GeoReM preferred Values" 查询接口目前有服务端 VBScript 运行时错误
+> （提交后报 `Index außerhalb des gültigen Bereichs`，2026-09 实测），
+> 所以上面的对照值取自 **NIST 官方证书**（一手）与已发表文献引用的 GeoReM 值，
+> 而不是直接从官网抓取。要换成最新版 GeoReM，替换
+> `Standards_GeoReM.csv` 即可——但注意这会改变内标法结果，
+> `tests/test-parity.R` 与原脚本的逐位对拍基准也会跟着变。
+
+### 那公式法为什么会没事
+
+因为 **λ 是逐元素独立回归的**（`λ_j = Σ C_j / Σ cps_j`，3 节），
+从头到尾没有做过"总量求和"，也就不需要总量等于 100%。
+覆盖率低只影响"拿标样做总量检验"这条路，不影响归算。
+
+还有一层，实测下来更有意思。用本批次的 λ 去还原 SRM 610：
+
+| 定标方式 | 实测通道折算氧化物总量 |
+|---|---:|
+| 只用 NIST610 自定标 | 83.07 wt% ← 与参考表口径一致 |
+| NIST610 + 612 合定 λ | 56.72 wt% ← 整体被压了 0.683 倍 |
+
+合定 λ 时是按 cps 加权平均的，两个标样文件的剥蚀量不同，
+于是 λ 带了一个整体缩放因子 0.683。但公式法最后有一步 **F_f 归一化**
+（`Σ z·n = 电荷目标`），**这个整体缩放会被完全抵消**——
+锆石 Zr 算出来是 480 231（化学计量 497 700，偏差 −3.5%），
+而不是 −32%。
+
+> 换句话说：**λ 的绝对缩放不重要，重要的是元素之间的相对灵敏度。**
+> 这也是为什么本方法能容忍"标样没测全元素"：它本来就不靠总量。
+
+### 程序里的诊断
+
+`termite_run_formula()` 会顺手算一份 `ref_coverage`，
+Shiny 界面上会显示一行提示，例如：
+
+> 标样未测全元素，不能归一到 100%（本方法不依赖总量归一，结果不受影响）：
+> NIST610 覆盖率 83%（实测 83.1 / 全部 99.6 wt%）（未测：Na 9.94%、Al 1.03%）
+
+覆盖率 ≥95% 时提示改成"标样元素覆盖完整"。
+单独的调用方式：`termite_ref_coverage(std_tab, "NIST610", elements)`。
+
+
 ## 7. 局限与注意事项
 
 1. **公式法目前没有检出限（LoD）截断，这一点和内标法完全不同。**

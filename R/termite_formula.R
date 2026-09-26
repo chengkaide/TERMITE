@@ -149,6 +149,64 @@ termite_sensitivity <- function(cps_list, conc_list) {
 # 2. 归算核心：三种矿物模式
 # -----------------------------------------------------------------------------
 
+#' 参考物质「质量覆盖率」诊断
+#'
+#' 回答一个问题：**当前这套通道，能看到该参考物质总质量的百分之多少？**
+#'
+#' 为什么需要它：硅酸盐玻璃标样（NIST 610/612）的主量元素是 Si、Na、Ca、Al，
+#' 但锆石/白钨矿这类「微量元素方法」通常**只接稀土与高场强元素，不接 Na、Al**。
+#' 实测下来 NIST610 在这类通道下只能看到约 83 wt% 的质量，
+#' 缺的正是 Na（9.94 wt%）与 Al（1.03 wt%），折算 Na₂O + Al₂O₃ ≈ 15.4 wt%。
+#' 于是**标样不能当作「可归一到 100%」的物质来用**：
+#' 若强行把测到的元素归一化到 100%，所有元素会被系统性抬高 1/0.83 ≈ 1.2 倍。
+#'
+#' 本模块的 lambda 是**逐元素独立回归**的（λ_j = Σ C_j / Σ cps_j），
+#' 不做任何总量求和，所以覆盖率低**不影响**归算结果；
+#' 这个诊断只是提醒使用者：别拿标样做「总量归一 / 100% 检验」。
+#'
+#' 口径：元素 → 氧化物折算 `ox = C · (1 + (z/2)·M_O/M_i)`，把没测到的氧补回来；
+#' 挥发性/阴离子元素（H、C、N、O、F、Cl、S、Br、I）不计入求和。
+#'
+#' @param std_tab 参考物质推荐值表（termite_read_standards 的返回值）
+#' @param rm      行名，如 "NIST610"
+#' @param elements 当前实测通道覆盖的元素名
+#' @return list(rm, full_wt_pct, measured_wt_pct, coverage, missing_wt_pct)；
+#'          找不到该参考物质时返回 NULL
+termite_ref_coverage <- function(std_tab, rm, elements,
+                                 M = NULL, valence = NULL) {
+  if (is.null(rm) || !rm %in% rownames(std_tab)) return(NULL)
+  M <- if (is.null(M)) .termite_M_default else M
+  valence <- if (is.null(valence)) .termite_valence_default else valence
+
+  v <- suppressWarnings(as.numeric(std_tab[rm, ]))
+  names(v) <- element_of(names(std_tab))
+  v <- v[is.finite(v) & v > 0]
+  if (!length(v)) return(NULL)
+  e_all <- unique(names(v))
+  by_el <- vapply(e_all, function(e) v[names(v) == e][1], 1.0)
+
+  # 玻璃里的挥发性/阴离子组分不计入「氧化物总量」
+  skip <- c("H", "C", "N", "O", "F", "Cl", "S", "Br", "I")
+  ox <- function(e) {
+    if (e %in% skip) return(0)
+    aw <- unname(M[e]); z <- unname(valence[e])
+    if (length(aw) != 1 || length(z) != 1 || is.na(aw) || is.na(z)) return(0)
+    by_el[[e]] * (1 + (z / 2) * .M_O / aw)
+  }
+  o_all  <- vapply(e_all, ox, 0)
+  full   <- sum(o_all)
+  meas   <- sum(o_all[e_all %in% elements])
+  miss   <- sort(by_el[!(e_all %in% elements)] / 1e4, decreasing = TRUE)
+  miss   <- miss[miss >= 0.01]
+
+  list(rm = rm,
+       full_wt_pct     = full / 1e4,
+       measured_wt_pct = meas / 1e4,
+       coverage        = if (full > 0) meas / full else NA_real_,
+       missing_wt_pct  = if (length(miss)) head(miss, 6L) else numeric(0))
+}
+
+
 #' 通用「固定阳离子扣除」归一化（fixed 模式）
 #'
 #' 无水矿物电荷归一化的推广：结构式里有几个「配位数固定、但 ICP-MS 测不准」的
@@ -421,6 +479,14 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
   for (k in seq_along(ref_conc)) names(ref_conc[[k]]) <- isotopes
   lambda <- termite_sensitivity(ref_cps, ref_conc)
 
+  # ---- 参考物质质量覆盖率诊断 ----
+  # 只作提示用：本模块的 lambda 逐元素回归，不依赖「总量归一到 100%」；
+  # 覆盖率低说明标样有主量元素没测到（典型是玻璃里的 Na、Al），
+  # 此时不能拿标样做总量检验，但归算结果本身不受影响。
+  ref_coverage <- lapply(unique(ref_rm), function(rm)
+    termite_ref_coverage(std_tab, rm, unique(main_el)))
+  names(ref_coverage) <- unique(ref_rm)
+
   # ---- 矿物参数 + 归算 ----
   # 优先读 mineral_formulas.csv（用户可覆盖/扩展），否则用内置表
   mp <- termite_mineral_param(mineral, termite_mineral_defs(cfg))
@@ -467,6 +533,7 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
 
   list(mineral = mp, mode = "formula", isotopes = main_iso, elements = main_el,
        lambda = lambda[main_iso], samples = conc_mat,
+       ref_coverage = ref_coverage,
        apfu = lapply(out, `[[`, "apfu"),
        formula_factor = vapply(out, `[[`, numeric(1), "formula_factor"),
        M_total = vapply(out, `[[`, numeric(1), "M_total"))

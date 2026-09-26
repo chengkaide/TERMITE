@@ -140,7 +140,7 @@
   <div class="layout">
     <aside class="toc">
       <div class="t">目录</div>
-      <ul><ul><li><a href="#0">0. 一句话概括</a></li><li><a href="#1">1. 为什么要绕开内标</a></li><li><a href="#2-100-wt">2. 核心思想：电荷归一化 ≡ 氧化物归一化到 100 wt%</a></li><li><a href="#3">3. 灵敏度 λ：多参考物质回归</a></li><li><a href="#4">4. 五种归算模式</a><ul><li><a href="#41-anhydrous">4.1 无水矿物（anhydrous）—— 电荷归一化</a></li><li><a href="#42-apatite-p-f">4.2 氟磷灰石（apatite）—— 结构式补 P 与 F</a></li><li><a href="#43-mica-k-ohf">4.3 云母（mica）—— 结构式补 K 与 OH(F)</a></li><li><a href="#44-fixed">4.4 绿柱石 / 电气石（fixed）—— 固定配位阳离子扣除</a></li><li><a href="#45-fixedsi1-si-1-apfu">4.5 锆石（fixed，Si:1）—— 把测不准的 Si 钉在 1 apfu</a></li><li><a href="#46-stoich">4.6 磁铁矿 / 铬铁矿（stoich）—— 数位点，不看价态</a></li></ul></li><li><a href="#5">5. 使用方式</a></li><li><a href="#6">6. 与内标法的关系（重要）</a></li><li><a href="#61">6.1 实测对照：一批白钨矿，两种方法差多少</a><ul><li><a href="#_1">先看那个被"钉死"的元素</a></li><li><a href="#_2">再看真正独立算出来的那些元素</a></li><li><a href="#_3">为什么会差？把每一层原因拆开</a></li><li><a href="#_4">一个反向的例子：方法的分歧有时是"样品的真相"</a></li><li><a href="#_5">小结</a></li></ul></li><li><a href="#62">6.2 实测对照二：一批锆石，三种口径差多少</a><ul><li><a href="#_6">三条结论</a></li><li><a href="#_7">那磁铁矿呢</a></li></ul></li><li><a href="#7">7. 局限与注意事项</a></li><li><a href="#8">8. 数值自检</a></li><li><a href="#9">9. 与本仓库其它文件的关系</a></li></ul></ul>
+      <ul><ul><li><a href="#0">0. 一句话概括</a></li><li><a href="#1">1. 为什么要绕开内标</a></li><li><a href="#2-100-wt">2. 核心思想：电荷归一化 ≡ 氧化物归一化到 100 wt%</a></li><li><a href="#3">3. 灵敏度 λ：多参考物质回归</a></li><li><a href="#4">4. 五种归算模式</a><ul><li><a href="#41-anhydrous">4.1 无水矿物（anhydrous）—— 电荷归一化</a></li><li><a href="#42-apatite-p-f">4.2 氟磷灰石（apatite）—— 结构式补 P 与 F</a></li><li><a href="#43-mica-k-ohf">4.3 云母（mica）—— 结构式补 K 与 OH(F)</a></li><li><a href="#44-fixed">4.4 绿柱石 / 电气石（fixed）—— 固定配位阳离子扣除</a></li><li><a href="#45-fixedsi1-si-1-apfu">4.5 锆石（fixed，Si:1）—— 把测不准的 Si 钉在 1 apfu</a></li><li><a href="#46-stoich">4.6 磁铁矿 / 铬铁矿（stoich）—— 数位点，不看价态</a></li></ul></li><li><a href="#5">5. 使用方式</a></li><li><a href="#6">6. 与内标法的关系（重要）</a></li><li><a href="#61">6.1 实测对照：一批白钨矿，两种方法差多少</a><ul><li><a href="#_1">先看那个被"钉死"的元素</a></li><li><a href="#_2">再看真正独立算出来的那些元素</a></li><li><a href="#_3">为什么会差？把每一层原因拆开</a></li><li><a href="#_4">一个反向的例子：方法的分歧有时是"样品的真相"</a></li><li><a href="#_5">小结</a></li></ul></li><li><a href="#62">6.2 实测对照二：一批锆石，三种口径差多少</a><ul><li><a href="#_6">三条结论</a></li><li><a href="#_7">那磁铁矿呢</a></li></ul></li><li><a href="#63-srm-100">6.3 参考物质的覆盖率：SRM 玻璃为什么不能归一到 100%</a><ul><li><a href="#nist">先看 NIST 官方证书怎么说</a></li><li><a href="#georem">三方对照：标称值 / GeoReM / 本仓库</a></li><li><a href="#_8">那公式法为什么会没事</a></li><li><a href="#_9">程序里的诊断</a></li></ul></li><li><a href="#7">7. 局限与注意事项</a></li><li><a href="#8">8. 数值自检</a></li><li><a href="#9">9. 与本仓库其它文件的关系</a></li></ul></ul>
     </aside>
     <article class="mbody">
 
@@ -1046,6 +1046,246 @@ Mg、Sr、Fe 等类质同象替代挤进 Ca 位时，Ca 必须相应减少，电
 <strong>还没有真实磁铁矿数据跑过端到端</strong>——如果你手上有磁铁矿/铬铁矿的批次数据，
 建议按 6.2 的同样方式做一次对照（内标法用 Fe 化学计量 72.36 wt% 作 <code>C_IS</code>，
 公式法选 <code>magnetite</code>），两者的差就是对该矿物"化学计量假设"的实际检验。</p>
+<h2 id="63-srm-100">6.3 参考物质的覆盖率：SRM 玻璃为什么不能归一到 100%</h2>
+<p>上一节的讨论都默认了一件事：<strong>参考物质的推荐值是准的</strong>。
+但还有一个更前面的问题容易被忽略——<strong>这套通道到底"看得到"标样多少质量？</strong></p>
+<p>答案是：<strong>看不到 100%，通常只有 83% 左右。</strong> 这不是数据质量问题，
+而是"锆石微量元素方法"在方法设计上就不测玻璃的两个主量元素。</p>
+<h3 id="nist">先看 NIST 官方证书怎么说</h3>
+<p>NIST SRM 610 / 612 的证书（<a href="https://tsapps.nist.gov/srmext/certificates/610.pdf">610</a>、
+<a href="https://tsapps.nist.gov/srmext/certificates/612.pdf">612</a>）写得很明确，
+玻璃基体是<strong>标称（nominal）</strong>组成：</p>
+<blockquote>
+<p>Sixty-one trace elements were added to the glass support matrix, which has a
+nominal composition of 72 % SiO₂, 14 % Na₂O, 12 % CaO, and 2 % Al₂O₃ (mass fractions).</p>
+</blockquote>
+<p>也就是说，<strong>Na₂O + Al₂O₃ 一共占 16 wt%</strong>。而锆石微量元素方法
+（典型通道：²⁹Si、⁴³Ca、⁸⁹Y、⁹¹Zr、REE、Hf、Th、U……）
+<strong>根本不接 Na 和 Al</strong>——于是这套通道先天就看不到这 16 wt%。</p>
+<figure>
+<svg viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="210" fill="#FFFFFF"/>
+<text x="14" y="18" font-size="12.5" fill="#26251F" font-weight="700">图 6　NIST610 的质量构成（氧化物 wt%）与这套锆石通道能看到的部分</text>
+
+<text x="40" y="44" font-size="10.5" fill="#5F5E5A">整套通道看到 83.4%　·　看不到的 16.6% 几乎全是 Na₂O + Al₂O₃</text>
+
+<!-- 堆叠条：总宽 600px = 100 wt% -->
+<rect x="40" y="56" width="418.2" height="42" fill="#2F855A"/>
+<rect x="458.2" y="56" width="80.4" height="42" fill="#C53030"/>
+<rect x="538.6" y="56" width="69.0" height="42" fill="#2F855A"/>
+<rect x="607.6" y="56" width="11.7" height="42" fill="#C53030"/>
+<rect x="619.3" y="56" width="20.7" height="42" fill="#A0AEC0"/>
+<rect x="40" y="56" width="600" height="42" fill="none" stroke="#26251F" stroke-width="1"/>
+
+<text x="249" y="81" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="700">SiO₂ 69.7</text>
+<text x="498" y="81" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">Na₂O 13.4</text>
+<text x="573" y="81" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">CaO 11.5</text>
+<text x="631" y="74" font-size="8.5" fill="#FFFFFF" text-anchor="middle">Al₂O₃</text>
+<text x="631" y="84" font-size="8.5" fill="#FFFFFF" text-anchor="middle">1.95</text>
+
+<!-- 引线标注 -->
+<line x1="249" y1="98" x2="249" y2="112" stroke="#2F855A" stroke-width="1"/>
+<text x="249" y="126" font-size="10" fill="#2F855A" text-anchor="middle">测得到（²⁹Si）</text>
+<line x1="498" y1="98" x2="498" y2="112" stroke="#C53030" stroke-width="1"/>
+<text x="498" y="126" font-size="10" fill="#C53030" text-anchor="middle">没接 Na 通道</text>
+<line x1="573" y1="98" x2="573" y2="112" stroke="#2F855A" stroke-width="1"/>
+<text x="573" y="126" font-size="10" fill="#2F855A" text-anchor="middle">测得到（⁴³Ca）</text>
+
+<!-- 覆盖区间 -->
+<line x1="40" y1="140" x2="640" y2="140" stroke="#26251F" stroke-width="1"/>
+<rect x="40" y="146" width="418.2" height="10" fill="#2F855A" opacity="0.25"/>
+<rect x="458.2" y="146" width="80.4" height="10" fill="#C53030" opacity="0.25"/>
+<rect x="538.6" y="146" width="69.0" height="10" fill="#2F855A" opacity="0.25"/>
+<rect x="619.3" y="146" width="20.7" height="10" fill="#A0AEC0" opacity="0.25"/>
+<text x="40" y="172" font-size="10.5" fill="#5F5E5A">实测通道折算氧化物总量 83.07 wt%　（参考表全元素口径 99.56 wt%）</text>
+<text x="40" y="188" font-size="10.5" fill="#5F5E5A">缺口 16.49 wt%　≈　NIST 标称的 Na₂O + Al₂O₃ = 16 wt%　✓ 吻合</text>
+<text x="40" y="204" font-size="9.5" fill="#8A8A82">数据：NIST610 行取自 Standards_GeoReM.csv；氧化物折算 ox = C·(1 + (z/2)·M_O/M_i)。</text>
+</svg>
+<figcaption>图 6　玻璃标样的质量有六分之一是这套通道看不见的。绿色是测得到的，红色是没接通道的（Na、Al），灰色是其余微量元素。<b>实测缺口 16.5 wt% 与 NIST 证书标称的 Na₂O + Al₂O₃ = 16 wt% 吻合</b>——两条独立路径得到同一个数。</figcaption>
+</figure>
+
+<h3 id="georem">三方对照：标称值 / GeoReM / 本仓库</h3>
+<p>本仓库 <code>Standards_GeoReM.csv</code> 里的 NIST610 / NIST612 取自 GeoReM。
+把它和 NIST 证书的标称值、以及已发表文献引用的 GeoReM 值放在一起对：</p>
+<p><strong>主量元素</strong>（µg/g）</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>组分</th>
+<th style="text-align: right;">NIST 证书标称</th>
+<th style="text-align: right;">折算成元素</th>
+<th style="text-align: right;">本仓库 GeoReM</th>
+<th style="text-align: right;">偏差</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SiO₂</td>
+<td style="text-align: right;">72 wt%</td>
+<td style="text-align: right;">Si 336 561</td>
+<td style="text-align: right;">325 800</td>
+<td style="text-align: right;">−3.2%</td>
+</tr>
+<tr>
+<td>Na₂O</td>
+<td style="text-align: right;">14 wt%</td>
+<td style="text-align: right;">Na 103 859</td>
+<td style="text-align: right;">99 400</td>
+<td style="text-align: right;">−4.3%</td>
+</tr>
+<tr>
+<td>CaO</td>
+<td style="text-align: right;">12 wt%</td>
+<td style="text-align: right;">Ca 85 764</td>
+<td style="text-align: right;">82 200</td>
+<td style="text-align: right;">−4.2%</td>
+</tr>
+<tr>
+<td>Al₂O₃</td>
+<td style="text-align: right;">2 wt%</td>
+<td style="text-align: right;">Al 10 585</td>
+<td style="text-align: right;">10 300</td>
+<td style="text-align: right;">−2.7%</td>
+</tr>
+</tbody>
+</table></div>
+<p>GeoReM 是<strong>实测</strong>值，NIST 标称是<strong>配方</strong>值，两者差 3%～4% 属正常，
+不是错误；用哪个要跟你引用的文献口径一致。</p>
+<p><strong>微量元素</strong>（µg/g，对照一篇 2023 年开放获取文献里引用的同批 GeoReM 值）</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">Li</th>
+<th style="text-align: right;">Na</th>
+<th style="text-align: right;">Mg</th>
+<th style="text-align: right;">Ca</th>
+<th style="text-align: right;">Mn</th>
+<th style="text-align: right;">Fe</th>
+<th style="text-align: right;">Cu</th>
+<th style="text-align: right;">Zn</th>
+<th style="text-align: right;">Sr</th>
+<th style="text-align: right;">Mo</th>
+<th style="text-align: right;">Ba</th>
+<th style="text-align: right;">U</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>610 本仓库</td>
+<td style="text-align: right;">468</td>
+<td style="text-align: right;">99 400</td>
+<td style="text-align: right;">432</td>
+<td style="text-align: right;">82 200</td>
+<td style="text-align: right;">444</td>
+<td style="text-align: right;">458</td>
+<td style="text-align: right;">441</td>
+<td style="text-align: right;">460</td>
+<td style="text-align: right;">515.5</td>
+<td style="text-align: right;">417</td>
+<td style="text-align: right;">452</td>
+<td style="text-align: right;">461.5</td>
+</tr>
+<tr>
+<td>610 文献</td>
+<td style="text-align: right;">468</td>
+<td style="text-align: right;">99 415</td>
+<td style="text-align: right;">465</td>
+<td style="text-align: right;">82 144</td>
+<td style="text-align: right;">444</td>
+<td style="text-align: right;">458</td>
+<td style="text-align: right;">441</td>
+<td style="text-align: right;">460</td>
+<td style="text-align: right;">515.5</td>
+<td style="text-align: right;">417</td>
+<td style="text-align: right;">452</td>
+<td style="text-align: right;">461.5</td>
+</tr>
+<tr>
+<td>612 本仓库</td>
+<td style="text-align: right;">40.2</td>
+<td style="text-align: right;">101 640</td>
+<td style="text-align: right;">68</td>
+<td style="text-align: right;">85 050</td>
+<td style="text-align: right;">38.7</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">37.8</td>
+<td style="text-align: right;">39.1</td>
+<td style="text-align: right;">78.4</td>
+<td style="text-align: right;">37.4</td>
+<td style="text-align: right;">39.3</td>
+<td style="text-align: right;">37.4</td>
+</tr>
+<tr>
+<td>612 文献</td>
+<td style="text-align: right;">40.2</td>
+<td style="text-align: right;">103 858</td>
+<td style="text-align: right;">68</td>
+<td style="text-align: right;">85 049.3</td>
+<td style="text-align: right;">38.7</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">37.8</td>
+<td style="text-align: right;">39.1</td>
+<td style="text-align: right;">78.4</td>
+<td style="text-align: right;">37.4</td>
+<td style="text-align: right;">39.3</td>
+<td style="text-align: right;">37.38</td>
+</tr>
+</tbody>
+</table></div>
+<p>12 项里 10 项完全一致；只有 <strong>Mg(610) −7.1%</strong> 和 <strong>Na(612) −2.1%</strong> 对不上，
+属于 GeoReM 不同版本之间的正常漂移。</p>
+<blockquote>
+<p><strong>关于 GeoReM 官网</strong>：旧址 <code>georem.mpch-mainz.gwdg.de</code> 已迁移到
+<a href="https://georem.earth/"><code>georem.earth</code></a>（由 IAG 与 DIGIS 维护）。
+本站的 "GeoReM preferred Values" 查询接口目前有服务端 VBScript 运行时错误
+（提交后报 <code>Index außerhalb des gültigen Bereichs</code>，2026-09 实测），
+所以上面的对照值取自 <strong>NIST 官方证书</strong>（一手）与已发表文献引用的 GeoReM 值，
+而不是直接从官网抓取。要换成最新版 GeoReM，替换
+<code>Standards_GeoReM.csv</code> 即可——但注意这会改变内标法结果，
+<code>tests/test-parity.R</code> 与原脚本的逐位对拍基准也会跟着变。</p>
+</blockquote>
+<h3 id="_8">那公式法为什么会没事</h3>
+<p>因为 <strong>λ 是逐元素独立回归的</strong>（<code>λ_j = Σ C_j / Σ cps_j</code>，3 节），
+从头到尾没有做过"总量求和"，也就不需要总量等于 100%。
+覆盖率低只影响"拿标样做总量检验"这条路，不影响归算。</p>
+<p>还有一层，实测下来更有意思。用本批次的 λ 去还原 SRM 610：</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>定标方式</th>
+<th style="text-align: right;">实测通道折算氧化物总量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>只用 NIST610 自定标</td>
+<td style="text-align: right;">83.07 wt% ← 与参考表口径一致</td>
+</tr>
+<tr>
+<td>NIST610 + 612 合定 λ</td>
+<td style="text-align: right;">56.72 wt% ← 整体被压了 0.683 倍</td>
+</tr>
+</tbody>
+</table></div>
+<p>合定 λ 时是按 cps 加权平均的，两个标样文件的剥蚀量不同，
+于是 λ 带了一个整体缩放因子 0.683。但公式法最后有一步 <strong>F_f 归一化</strong>
+（<code>Σ z·n = 电荷目标</code>），<strong>这个整体缩放会被完全抵消</strong>——
+锆石 Zr 算出来是 480 231（化学计量 497 700，偏差 −3.5%），
+而不是 −32%。</p>
+<blockquote>
+<p>换句话说：<strong>λ 的绝对缩放不重要，重要的是元素之间的相对灵敏度。</strong>
+这也是为什么本方法能容忍"标样没测全元素"：它本来就不靠总量。</p>
+</blockquote>
+<h3 id="_9">程序里的诊断</h3>
+<p><code>termite_run_formula()</code> 会顺手算一份 <code>ref_coverage</code>，
+Shiny 界面上会显示一行提示，例如：</p>
+<blockquote>
+<p>标样未测全元素，不能归一到 100%（本方法不依赖总量归一，结果不受影响）：
+NIST610 覆盖率 83%（实测 83.1 / 全部 99.6 wt%）（未测：Na 9.94%、Al 1.03%）</p>
+</blockquote>
+<p>覆盖率 ≥95% 时提示改成"标样元素覆盖完整"。
+单独的调用方式：<code>termite_ref_coverage(std_tab, "NIST610", elements)</code>。</p>
 <h2 id="7">7. 局限与注意事项</h2>
 <ol>
 <li>

@@ -289,6 +289,39 @@ if (dir.exists(qt_dir)) {
   cat("\n[6] 跳过真实数据用例：找不到 ", qt_dir, "\n", sep = "")
 }
 
+# ---------------------------------------------------------------------------
+# 7. 参考物质质量覆盖率诊断（SRM 玻璃在微量元素通道下看不到 100%）
+# ---------------------------------------------------------------------------
+cat("\n[7] 参考物质覆盖率诊断\n")
+
+# 构造一个 NIST610 风格的假标样：主量 Si/Na/Ca/Al + 一个微量元素 Zr
+std_fake <- data.frame(row.names = c("FAKE610"),
+                       Si28 = 325800, Na23 = 99400, Ca43 = 82200,
+                       Al27 = 10300, Zr91 = 400, check.names = FALSE)
+# 只测 Si、Ca、Zr（不测 Na、Al）—— 正是锆石微量元素方法的典型通道配置
+cov <- termite_ref_coverage(std_fake, "FAKE610", c("Si", "Ca", "Zr"))
+
+check_close("覆盖率对象非空", length(cov) > 0, TRUE)
+check_close("全元素折算氧化物 ≈ 96.6 wt%", cov$full_wt_pct, 96.59, tol = 1e-3)
+check_close("实测通道折算氧化物 ≈ 81.2 wt%", cov$measured_wt_pct, 81.25, tol = 1e-3)
+check_close("覆盖率 ≈ 0.841（远不到 100%）", cov$coverage, 0.8411, tol = 1e-3)
+check_close("缺口主因是 Na ≈ 9.94 wt%", cov$missing_wt_pct[["Na"]], 9.94, tol = 1e-3)
+check_close("其次是 Al ≈ 1.03 wt%", cov$missing_wt_pct[["Al"]], 1.03, tol = 1e-3)
+
+# 通道测全时覆盖率应回到 1
+cov_all <- termite_ref_coverage(std_fake, "FAKE610",
+                                c("Si", "Na", "Ca", "Al", "Zr"))
+check_close("测全元素时覆盖率 = 1", cov_all$coverage, 1.0, tol = 1e-8)
+
+# 找不到的参考物质返回 NULL（不该让调用方崩）
+check_close("未知参考物质返回 NULL",
+            is.null(termite_ref_coverage(std_fake, "NOPE", c("Si"))), TRUE)
+
+cat(sprintf("    覆盖率 %.1f%%（实测 %.2f / 全部 %.2f wt%%）；缺口：%s\n",
+            cov$coverage * 100, cov$measured_wt_pct, cov$full_wt_pct,
+            paste(sprintf("%s %.2f%%", names(cov$missing_wt_pct),
+                          cov$missing_wt_pct), collapse = "、")))
+
 cat("\n===================================================================\n")
 if (fails == 0L) cat("  结果：全部通过\n") else cat(sprintf("  结果：%d 项失败\n", fails))
 cat("===================================================================\n\n")
