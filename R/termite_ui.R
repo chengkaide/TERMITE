@@ -254,7 +254,8 @@ termite_ui <- function() {
                            choices = NULL,
                            options = list(placeholder = "请选择矿物")),
             div(style = "font-size:11.5px;color:#718096;margin:-4px 0 6px",
-                "无水矿物（白钨矿/锡石/锆石）· 氟磷灰石 · 云母 · 绿柱石 · 电气石。"),
+                "无水矿物（白钨矿/锡石）· 锆石（固定 Si）· 氟磷灰石 · 云母 · ",
+                "绿柱石 · 电气石 · 尖晶石族（磁铁矿/铬铁矿）。"),
             actionButton("run_formula", "▶  运行公式法校准", class = "btn-run btn-success"),
             div(style = "height:6px"),
             uiOutput("formula_status_bar")

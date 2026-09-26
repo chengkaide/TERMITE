@@ -73,23 +73,28 @@
 #' 矿物结构式参数（内置，mineral_formulas.csv 可覆盖/扩展）
 #'
 #' 每行一个矿物：mode 决定归算走哪条路径，n_O/n_F/n_OH 决定阴离子框架，
+#' n_cat 是「阳离子位点总数」（stoich 模式用，如尖晶石 AB2O4 → 3），
 #' excluded 是 ICP-MS 测不准、需要按结构式理论补的元素。
 .termite_mineral_builtin <- function() {
   data.frame(
-    name     = c("scheelite", "cassiterite", "zircon", "fluorapatite",
-                 "muscovite", "biotite", "beryl", "tourmaline"),
-    formula  = c("CaWO4", "SnO2", "ZrSiO4", "Ca5(PO4)3F",
+    name     = c("scheelite", "cassiterite", "zircon", "zircon_full",
+                 "fluorapatite", "muscovite", "biotite", "beryl",
+                 "tourmaline", "magnetite", "chromite"),
+    formula  = c("CaWO4", "SnO2", "ZrSiO4", "ZrSiO4", "Ca5(PO4)3F",
                  "KAl2(AlSi3)O10(OH,F)2", "K(Mg,Fe)3(AlSi3)O10(OH,F)2",
-                 "Be3Al2Si6O18", "Na(Mg,Fe)3Al6Si6O18(BO3)3(OH)4"),
-    mode     = c("anhydrous", "anhydrous", "anhydrous", "apatite",
-                 "mica", "mica", "fixed", "fixed"),
-    n_O      = c(4, 2, 4, 12, 10, 10, 18, 31),
-    n_F      = c(0, 0, 0, 1, 0, 0, 0, 0),
-    n_OH     = c(0, 0, 0, 0, 2, 2, 0, 4),
-    fixed    = c("", "", "", "", "", "", "Be:3", "B:3;Si:6"),
-    excluded = c("", "", "", "P", "K", "K", "", ""),
-    note     = c("白钨矿", "锡石", "锆石", "氟磷灰石",
-                 "白云母", "黑云母", "绿柱石", "电气石"),
+                 "Be3Al2Si6O18", "Na(Mg,Fe)3Al6Si6O18(BO3)3(OH)4",
+                 "Fe3O4", "FeCr2O4"),
+    mode     = c("anhydrous", "anhydrous", "fixed", "anhydrous", "apatite",
+                 "mica", "mica", "fixed", "fixed", "stoich", "stoich"),
+    n_O      = c(4, 2, 4, 4, 12, 10, 10, 18, 31, 4, 4),
+    n_F      = c(0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0),
+    n_OH     = c(0, 0, 0, 0, 0, 2, 2, 0, 4, 0, 0),
+    n_cat    = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3),
+    fixed    = c("", "", "Si:1", "", "", "", "", "Be:3", "B:3;Si:6", "", ""),
+    excluded = c("", "", "Si", "", "P", "K", "K", "", "", "", ""),
+    note     = c("白钨矿", "锡石", "锆石（Si 按结构式固定，推荐）",
+                 "锆石（全元素电荷归一化，需可靠 Si 通道）", "氟磷灰石",
+                 "白云母", "黑云母", "绿柱石", "电气石", "磁铁矿", "铬铁矿"),
     stringsAsFactors = FALSE
   )
 }
@@ -191,6 +196,48 @@ termite_formula_fixed <- function(cps, lambda, M, valence, n_O,
        apfu = c(apfu, fixed),
        formula_factor = Ff, charge_target = charge_target,
        anion_charge = anion_charge, fixed_charge = fixed_charge,
+       M_total = M_total, fixed = fixed)
+}
+
+#' 通用「阳离子位点总数固定」归一化（stoich 模式）
+#'
+#' 有些矿物的**阳离子位点总数**由结构决定、且不随类质同象替代变化，
+#' 而各元素的价态/氧化态反而不确定——此时用「位点计数」比「电荷平衡」更稳：
+#'
+#'   · 尖晶石族 AB2O4（磁铁矿 Fe3O4、铬铁矿 FeCr2O4、尖晶石 MgAl2O4）：
+#'     阳离子总数恒 = 3（四面体 1 + 八面体 2），O = 4。
+#'     Ti/Mg/Al/Cr/Mn/Zn/V/Ni/Ga 替代 Fe 时总数不变；
+#'     而 Fe²⁺/Fe³⁺ 比会在磁铁矿—钛铁晶石固溶体里变，用电荷归一化就要先假设价态，
+#'     用位点计数则完全绕开价态问题。
+#'
+#' 数学上：F_f = n_cat / Σ n_i（未归一化摩尔数之和），与电荷无关。
+#'
+#' @param n_cat  阳离子位点总数（a.p.f.u.），如尖晶石 = 3
+#' @param fixed  可选，被固定扣除的元素（这些位点从 n_cat 里先扣掉）
+termite_formula_stoich <- function(cps, lambda, M, valence, n_cat,
+                                   n_O, fixed = numeric(0), n_OH = 0, n_F = 0) {
+  keep <- setdiff(names(cps), names(fixed))
+  Cprime <- cps[keep] * lambda[keep]
+  n  <- Cprime / M[keep]
+
+  Mf <- .termite_M_default[names(fixed)]
+  hm <- names(fixed)[names(fixed) %in% names(M)]
+  if (length(hm)) Mf[hm] <- M[hm]
+
+  site_target <- n_cat - sum(fixed, na.rm = TRUE)   # 留给可测元素的位点数
+  Ff <- site_target / sum(n, na.rm = TRUE)          # 化学式因子
+  apfu <- n * Ff
+
+  M_cat   <- sum(apfu * M[keep], na.rm = TRUE)
+  M_fixed <- sum(Mf * fixed, na.rm = TRUE)
+  M_total <- M_cat + M_fixed + n_O * .M_O + n_OH * .M_H + n_F * .M_F
+
+  conc       <- apfu * M[keep] / M_total * 1e6
+  conc_fixed <- Mf * fixed / M_total * 1e6
+
+  list(conc_ug_g = c(conc, conc_fixed),
+       apfu = c(apfu, fixed),
+       formula_factor = Ff, site_target = site_target, n_cat = n_cat,
        M_total = M_total, fixed = fixed)
 }
 
@@ -382,6 +429,7 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
                     apatite   = termite_formula_apatite,
                     mica      = termite_formula_mica,
                     fixed     = termite_formula_fixed,
+                    stoich    = termite_formula_stoich,
                     stop("不支持的矿物模式：", mp$mode))
 
   sample_cps <- lapply(sample_files, .net_cps)
@@ -395,12 +443,19 @@ termite_run_formula <- function(cfg, mineral, valence = NULL) {
   fx <- .parse_fixed(mp$fixed)
   out <- lapply(seq_along(sample_files), function(k) {
     cps_k <- sample_cps[[k]][main_iso]; names(cps_k) <- main_el
-    # anhydrous 只需 n_O；fixed 还需固定阳离子与 OH/F；磷灰石/云母用结构式常数
+    # anhydrous 只需 n_O；fixed 还需固定阳离子与 OH/F；stoich 还需阳离子位点总数；
+    # 磷灰石/云母用结构式常数
+    nc <- if (is.null(mp$n_cat) || length(mp$n_cat) == 0L || is.na(mp$n_cat))
+      0 else as.numeric(mp$n_cat)
     if (identical(mp$mode, "anhydrous"))
       reducer(cps_k, lambda_el, M_el, val_el, n_O = mp$n_O)
     else if (identical(mp$mode, "fixed"))
       reducer(cps_k, lambda_el, M_el, val_el,
               n_O = mp$n_O, fixed = fx,
+              n_OH = as.numeric(mp$n_OH), n_F = as.numeric(mp$n_F))
+    else if (identical(mp$mode, "stoich"))
+      reducer(cps_k, lambda_el, M_el, val_el,
+              n_cat = nc, n_O = mp$n_O, fixed = fx,
               n_OH = as.numeric(mp$n_OH), n_F = as.numeric(mp$n_F))
     else
       reducer(cps_k, lambda_el, M_el, val_el)

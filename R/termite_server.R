@@ -489,7 +489,7 @@ termite_server <- function(input, output, session) {
   }, striped = TRUE, bordered = TRUE, digits = 4)
 
   # ---------------------------------------------------------------- 公式法校准（无内标）
-  # 矿物下拉候选：来自 mineral_formulas.csv（可扩展），缺省回退内置 8 种矿物
+  # 矿物下拉候选：来自 mineral_formulas.csv（可扩展），缺省回退内置 11 种矿物
   observe({
     defs <- termite_mineral_defs(list(dir = input$dir, app_dir = root))
     updateSelectizeInput(session, "formula_mineral",

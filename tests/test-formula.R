@@ -43,7 +43,8 @@ check_close <- function(label, got, want, tol = 1e-8) {
 M <- c(Ca = 40.078, Sr = 87.62, Mn = 54.93804, W = 183.84, Si = 28.0855,
        P = 30.973761998, Na = 22.98976928, Al = 26.9815385, K = 39.0983,
        Be = 9.0121831, B = 10.81, Cr = 51.9961, Sc = 44.955908,
-       Mg = 24.305, Fe = 55.845)
+       Mg = 24.305, Fe = 55.845, Zr = 91.224, Hf = 178.49,
+       Ti = 47.867, V = 50.9415, Zn = 65.38)
 val <- .termite_valence_default
 
 # ---------------------------------------------------------------------------
@@ -106,12 +107,12 @@ check_close("Si 还原", r$conc_ug_g["Si"], conc_true["Si"])
 check_close("K  理论补", r$conc_ug_g["K"],  conc_K)
 
 # ---------------------------------------------------------------------------
-# 3b. mineral_formulas.csv 能被正确解析（8 种矿物、含中文备注、BOM）
+# 3c. mineral_formulas.csv 能被正确解析（11 种矿物、含中文备注、BOM）
 # ---------------------------------------------------------------------------
-cat("\n[3b] mineral_formulas.csv 解析\n")
+cat("\n[3c] mineral_formulas.csv 解析\n")
 cfg0 <- list(dir = "", app_dir = root)
 defs_csv <- termite_mineral_defs(cfg0, "TERMITEScriptFolder/mineral_formulas.csv")
-check_close("CSV 矿物数 = 8", nrow(defs_csv), 8)
+check_close("CSV 矿物数 = 11", nrow(defs_csv), 11)
 check_close("CSV 含 scheelite", sum(defs_csv$name == "scheelite"), 1)
 check_close("scheelite mode = anhydrous",
             sum(defs_csv$name == "scheelite" & defs_csv$mode == "anhydrous"), 1)
@@ -121,6 +122,18 @@ check_close("beryl fixed = Be:3",
             sum(defs_csv$name == "beryl" & defs_csv$fixed == "Be:3"), 1)
 check_close("tourmaline fixed = B:3;Si:6",
             sum(defs_csv$name == "tourmaline" & defs_csv$fixed == "B:3;Si:6"), 1)
+check_close("zircon fixed = Si:1",
+            sum(defs_csv$name == "zircon" & defs_csv$fixed == "Si:1"), 1)
+check_close("zircon 用 fixed 模式",
+            sum(defs_csv$name == "zircon" & defs_csv$mode == "fixed"), 1)
+check_close("zircon_full 用 anhydrous 模式",
+            sum(defs_csv$name == "zircon_full" & defs_csv$mode == "anhydrous"), 1)
+check_close("magnetite 用 stoich 模式、n_cat = 3",
+            sum(defs_csv$name == "magnetite" & defs_csv$mode == "stoich" &
+                defs_csv$n_cat == 3), 1)
+check_close("chromite 用 stoich 模式、n_cat = 3",
+            sum(defs_csv$name == "chromite" & defs_csv$mode == "stoich" &
+                defs_csv$n_cat == 3), 1)
 
 # ---------------------------------------------------------------------------
 # 4. 绿柱石 Be3Al2Si6O18（fixed 模式，固定扣除 Be）
@@ -174,6 +187,83 @@ check_close("Si 理论补", r$conc_ug_g["Si"], conc_Si)
 check_close("apfu B = 3", r$apfu["B"], 3)
 check_close("apfu Si = 6", r$apfu["Si"], 6)
 check_close("电荷目标 = 25", r$charge_target, 25)
+
+# ---------------------------------------------------------------------------
+# 5b. 锆石 ZrSiO4（fixed 模式，固定扣除 Si=1）
+#     Si 在 ICP-MS 上灵敏度差、且常有 29Si 的多原子干扰，按结构式固定为 1 apfu。
+#     剩下可测阳离子的电荷目标 = 2·4 − 4·1 = 4，即「Zr 位 = 1 apfu」约束。
+#     Zr 位 = 1（Zr 0.98 + Hf 0.02，均 +4），O = 4
+# ---------------------------------------------------------------------------
+cat("\n[5b] 锆石（固定扣除 Si=1）\n")
+apfu_true <- c(Zr = 0.98, Hf = 0.02)
+Fn_Si <- 1; n_O <- 4
+M_total <- sum(apfu_true * M[c("Zr", "Hf")]) + Fn_Si * M["Si"] + n_O * .M_O
+conc_true <- apfu_true * M[c("Zr", "Hf")] / M_total * 1e6
+conc_Si   <- Fn_Si * M["Si"] / M_total * 1e6
+lam <- c(Zr = 0.11, Hf = 0.10)
+cps <- conc_true / lam
+r <- termite_formula_fixed(cps, lam, M[c("Zr", "Hf")], val[c("Zr", "Hf")],
+                           n_O = n_O, fixed = c(Si = 1))
+check_close("Zr 还原", r$conc_ug_g["Zr"], conc_true["Zr"])
+check_close("Hf 还原", r$conc_ug_g["Hf"], conc_true["Hf"])
+check_close("Si 理论补", r$conc_ug_g["Si"], conc_Si)
+check_close("apfu Si = 1", r$apfu["Si"], 1)
+check_close("电荷目标 = 4", r$charge_target, 4)
+# 交叉检验：纯 ZrSiO4（Zr 位 = 1 apfu）⟹ Zr 含量应等于化学计量值 49.77 wt%
+cps_pure <- c(Zr = 49.77e4 / 0.11)
+r_pure <- termite_formula_fixed(cps_pure, c(Zr = 0.11), M["Zr"], val["Zr"],
+                                n_O = 4, fixed = c(Si = 1))
+check_close("纯 ZrSiO4 的 Zr 含量 = 49.77%", r_pure$conc_ug_g[["Zr"]] / 1e4,
+            49.77, tol = 1e-3)
+check_close("纯 ZrSiO4 的 Si 含量 = 15.32%", r_pure$conc_ug_g[["Si"]] / 1e4,
+            15.32, tol = 1e-3)
+
+# ---------------------------------------------------------------------------
+# 5c. 磁铁矿 Fe3O4（stoich 模式，阳离子位点总数 = 3）
+#     尖晶石 AB2O4：四面体 1 + 八面体 2，阳离子总数恒 = 3，O = 4。
+#     Ti/Mg/Al 替代 Fe 时总数不变；Fe²⁺/Fe³⁺ 比不定，故不用电荷归一化。
+#     设 Fe 2.90 + Ti 0.05 + Mg 0.03 + Al 0.02 = 3.00
+# ---------------------------------------------------------------------------
+cat("\n[5c] 磁铁矿（阳离子位点 = 3）\n")
+apfu_true <- c(Fe = 2.90, Ti = 0.05, Mg = 0.03, Al = 0.02)
+n_O <- 4; n_cat <- 3
+M_total <- sum(apfu_true * M[c("Fe", "Ti", "Mg", "Al")]) + n_O * .M_O
+conc_true <- apfu_true * M[c("Fe", "Ti", "Mg", "Al")] / M_total * 1e6
+lam <- c(Fe = 0.09, Ti = 0.10, Mg = 0.07, Al = 0.06)
+cps <- conc_true / lam
+r <- termite_formula_stoich(cps, lam, M[c("Fe", "Ti", "Mg", "Al")],
+                            val[c("Fe", "Ti", "Mg", "Al")],
+                            n_cat = n_cat, n_O = n_O)
+check_close("Fe 还原", r$conc_ug_g["Fe"], conc_true["Fe"])
+check_close("Ti 还原", r$conc_ug_g["Ti"], conc_true["Ti"])
+check_close("Mg 还原", r$conc_ug_g["Mg"], conc_true["Mg"])
+check_close("Al 还原", r$conc_ug_g["Al"], conc_true["Al"])
+check_close("位点目标 = 3", r$site_target, 3)
+check_close("apfu 总和 = 3", sum(r$apfu), 3)
+# 纯 Fe3O4 端元的 Fe 含量应为 72.36 wt%：把替代元素去掉再算一遍
+cps_pure <- c(Fe = 72.36e4 / 0.09)
+r_pure <- termite_formula_stoich(cps_pure, c(Fe = 0.09), M["Fe"], val["Fe"],
+                                 n_cat = 3, n_O = 4)
+check_close("纯 Fe3O4 的 Fe 含量 = 72.36%", r_pure$conc_ug_g[["Fe"]] / 1e4,
+            72.36, tol = 1e-3)
+
+# ---------------------------------------------------------------------------
+# 5d. 铬铁矿 FeCr2O4（stoich 模式，同为尖晶石，阳离子位点 = 3）
+#     Fe 0.95 + Cr 2.00 + Mg 0.05 = 3.00，O = 4
+# ---------------------------------------------------------------------------
+cat("\n[5d] 铬铁矿（阳离子位点 = 3）\n")
+apfu_true <- c(Fe = 0.95, Cr = 2.00, Mg = 0.05)
+M_total <- sum(apfu_true * M[c("Fe", "Cr", "Mg")]) + n_O * .M_O
+conc_true <- apfu_true * M[c("Fe", "Cr", "Mg")] / M_total * 1e6
+lam <- c(Fe = 0.09, Cr = 0.10, Mg = 0.07)
+cps <- conc_true / lam
+r <- termite_formula_stoich(cps, lam, M[c("Fe", "Cr", "Mg")],
+                            val[c("Fe", "Cr", "Mg")],
+                            n_cat = 3, n_O = 4)
+check_close("Fe 还原", r$conc_ug_g["Fe"], conc_true["Fe"])
+check_close("Cr 还原", r$conc_ug_g["Cr"], conc_true["Cr"])
+check_close("Mg 还原", r$conc_ug_g["Mg"], conc_true["Mg"])
+check_close("apfu 总和 = 3", sum(r$apfu), 3)
 
 # ---------------------------------------------------------------------------
 # 6. 真实白钨矿数据端到端冒烟（若目录存在）

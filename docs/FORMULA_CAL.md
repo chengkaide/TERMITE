@@ -176,12 +176,12 @@ C'_i = cps_i · λ_i
 
 ---
 
-## 4. 四种归算模式
+## 4. 五种归算模式
 
 <figure>
-<svg viewBox="0 0 680 236" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
-<rect width="680" height="236" fill="#FFFFFF"/>
-<text x="12" y="17" font-size="12.5" fill="#26251F" font-weight="700">四种归算模式：绿色是真正测出来的，琥珀色是按结构式补出来的</text>
+<svg viewBox="0 0 680 356" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="356" fill="#FFFFFF"/>
+<text x="12" y="17" font-size="12.5" fill="#26251F" font-weight="700">五种归算模式：绿色是真正测出来的，琥珀色是按结构式补出来的</text>
 <text x="12" y="33" font-size="10.5" fill="#8A8880">补出来的元素不是测量结果——它们来自矿物化学式本身对配位数的硬性约束</text>
 <rect x="146" y="44" width="26" height="14" rx="7" fill="#0E6650"/>
 <text x="178" y="55" font-size="9.5" fill="#5F5E5A">ICP-MS 实测（参与归一化）</text>
@@ -235,14 +235,38 @@ C'_i = cps_i · λ_i
 <rect x="382" y="210" width="66" height="22" rx="11" fill="#A2681C"/><text x="415" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">B / Si</text>
 <rect x="453" y="210" width="34" height="22" rx="11" fill="#A2681C"/><text x="470" y="225" font-size="10.5" fill="#FFFFFF" text-anchor="middle">OH</text>
 <text x="664" y="224" font-size="9.5" fill="#5F5E5A" text-anchor="end">固定配位阳离子按化学计量扣除后再归一</text>
+<rect x="12" y="254" width="656" height="44" rx="8" fill="#F8F7F4"/>
+<text x="24" y="266" font-size="11" fill="#4C43AE" font-weight="700">fixed · 锆石</text>
+<text x="24" y="279" font-size="9.5" fill="#8A8880">ZrSiO₄ · 锆石（默认）</text>
+<rect x="152" y="260" width="30" height="22" rx="11" fill="#0E6650"/><text x="167" y="275" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Zr</text>
+<rect x="187" y="260" width="30" height="22" rx="11" fill="#0E6650"/><text x="202" y="275" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Hf</text>
+<rect x="222" y="260" width="30" height="22" rx="11" fill="#0E6650"/><text x="237" y="275" font-size="10.5" fill="#FFFFFF" text-anchor="middle">U</text>
+<rect x="257" y="260" width="30" height="22" rx="11" fill="#0E6650"/><text x="272" y="275" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Th</text>
+<rect x="292" y="260" width="39" height="22" rx="11" fill="#0E6650"/><text x="311" y="275" font-size="10.5" fill="#FFFFFF" text-anchor="middle">REE</text>
+<text x="338" y="274" font-size="9" fill="#8A8880">→</text>
+<rect x="352" y="260" width="57" height="22" rx="11" fill="#A2681C"/><text x="380" y="275" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Si = 1</text>
+<text x="664" y="274" font-size="9.5" fill="#5F5E5A" text-anchor="end">Si 测不准 → 固定 1 apfu，Zr 位电荷归一到 4</text>
+<rect x="12" y="304" width="656" height="44" rx="8" fill="#F8F7F4"/>
+<text x="24" y="316" font-size="11" fill="#4C43AE" font-weight="700">stoich</text>
+<text x="24" y="329" font-size="9.5" fill="#8A8880">AB₂O₄ · 磁铁矿 / 铬铁矿</text>
+<rect x="152" y="310" width="30" height="22" rx="11" fill="#0E6650"/><text x="167" y="325" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Fe</text>
+<rect x="187" y="310" width="30" height="22" rx="11" fill="#0E6650"/><text x="202" y="325" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Ti</text>
+<rect x="222" y="310" width="30" height="22" rx="11" fill="#0E6650"/><text x="237" y="325" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Cr</text>
+<rect x="257" y="310" width="30" height="22" rx="11" fill="#0E6650"/><text x="272" y="325" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Mg</text>
+<rect x="292" y="310" width="30" height="22" rx="11" fill="#0E6650"/><text x="307" y="325" font-size="10.5" fill="#FFFFFF" text-anchor="middle">Al</text>
+<text x="329" y="324" font-size="9" fill="#8A8880">→</text>
+<rect x="343" y="310" width="66" height="22" rx="11" fill="#A2681C"/><text x="376" y="325" font-size="10.5" fill="#FFFFFF" text-anchor="middle">位点 = 3</text>
+<text x="664" y="324" font-size="9.5" fill="#5F5E5A" text-anchor="end">数阳离子个数，不看价态（Fe²⁺/Fe³⁺ 不定）</text>
 </svg>
-<figcaption>图 3　四种模式的区别只在一件事：<b>哪些元素被排除出电荷求和</b>。排除的原因各不相同——P 电离能太高、F 不电离、K 在层间位分馏、Be 太轻，ICP-MS 都测不准；偏偏这些元素在化学式里是定量的，于是反过来用化学式把它们算出来。</figcaption>
+<figcaption>图 3　五种模式的区别只在一件事：<b>用哪条结构约束来定归一化因子</b>——电荷配平（anhydrous / fixed）还是位点计数（stoich）。被排除的元素各有原因：P 电离能太高、F 不电离、K 在层间位分馏、Be 太轻、Si 在 ICP-MS 上偏高，ICP-MS 都测不准；偏偏这些元素在化学式里是定量的，于是反过来用化学式把它们算出来。</figcaption>
 </figure>
 
 
 ### 4.1 无水矿物（anhydrous）—— 电荷归一化
 
-适用于白钨矿 CaWO₄、锡石 SnO₂、锆石 ZrSiO₄ 这类**所有阴离子都是 O²⁻** 的矿物。
+适用于白钨矿 CaWO₄、锡石 SnO₂ 这类**所有阴离子都是 O²⁻、且每个主量阳离子都测得准**
+的矿物。（锆石 ZrSiO₄ 化学式上属于这一类，但实测里 ²⁹Si 通道偏高，默认改走 4.5 的
+`fixed` 路径，见 6.2 节。）
 
 ```
 n_i  = C'_i / M_i                    # 未归一化摩尔数
@@ -313,6 +337,50 @@ M_total = Σ apfu·M_i + Σ apfu_fixed·M_fixed + n_O·M_O + n_OH·M_H + n_F·M_
 电气石的 OH 按 4 个计（V₃W 位全按 OH，F 与 OH 原子量相近、电荷相同，近似成立），
 和云母的处理一致。**注意电气石的假设明显多于无水矿物**，见第 7 节第 6 条。
 
+### 4.5 锆石（fixed，`Si:1`）—— 把测不准的 Si 钉在 1 apfu
+
+锆石的麻烦不在 Zr，在 **Si**：
+
+- ²⁹Si 是唯一可用的 Si 同位素（³⁰Si 有 ¹⁴N¹⁶O⁺ 干扰），质量数低、背景高、
+  灵敏度差，而且是**用硅酸盐玻璃标样（NIST 610/612）定标的**——玻璃基体与锆石基体的
+  剥蚀行为差得远；
+- 实测里这个通道系统性偏高（见 6.2 节：按化学计量应为 15.32 wt%，实测高出约 24%）。
+
+所以锆石默认**不让 Si 参与归一化**：按结构式把 Si 固定为 1 apfu，剩下的电荷由 Zr 位承担。
+
+```
+charge_target = 2·n_O − 4·1 = 8 − 4 = 4          # 固定 Si = 1（z = 4）后剩下的电荷
+F_f   = 4 / Σ_{可测} n_i·z_i                      # Zr 位（Zr/Hf/U/Th/REE…）去配平
+M_total = Σ apfu·M_i + 1·M_Si + 4·M_O
+```
+
+因为 Zr 位上的元素几乎全是 +4（Zr⁴⁺、Hf⁴⁺、U⁴⁺、Th⁴⁺、Ti⁴⁺），「电荷 = 4」实际就是
+**「Zr 位总 apfu = 1」的约束**——和"用 Zr 作内标、Zr 取化学计量 49.77 wt%"在数学上等价，
+但**不需要 EPMA，也不需要测 Si**。
+
+CSV 里同时保留了 `zircon_full`（anhydrous，让全部阳离子含 Si 一起配平 8 个电荷），
+作为交叉校验：两个口径的差，就是 ²⁹Si 通道的偏差有多大。
+
+### 4.6 磁铁矿 / 铬铁矿（stoich）—— 数位点，不看价态
+
+尖晶石族 AB₂O₄（磁铁矿 Fe₃O₄、铬铁矿 FeCr₂O₄、尖晶石 MgAl₂O₄）有个更硬的约束：
+
+> **阳离子总数恒 = 3（四面体 1 + 八面体 2），与价态无关。**
+
+这一点对磁铁矿尤其关键。磁铁矿—钛铁晶石固溶体里 Fe²⁺/Fe³⁺ 比是变的
+（Fe₃O₄ 端元平均价 8/3，Fe₂TiO₄ 端元全是 Fe²⁺），**电荷归一化就得先假设价态**：
+若按默认 Fe²⁺ 配平，钛磁铁矿会被系统性压低百分之几。而数位点完全绕开这个问题：
+
+```
+F_f  = n_cat / Σ n_i            # n_cat = 3：阳离子位点总数
+apfu = n_i · F_f
+M_total = Σ apfu·M_i + n_O·M_O  # n_O = 4
+```
+
+Ti、Mg、Al、Cr、Mn、Zn、V、Ni、Ga 替代 Fe 时，位点总数不变，
+`F_f` 自动把 Fe 压到 (3 − Σ替代)，替得越多 Fe 越低——这正是想要的行为。
+纯 Fe₃O₄ 端元下，这个口径给出的 Fe = 72.36 wt%，与化学式一致。
+
 ---
 
 ## 5. 使用方式
@@ -329,21 +397,27 @@ res <- termite_run_formula(cfg, mineral = "scheelite")
 tab <- termite_formula_table(res)        # 导出成数据框
 ```
 
-矿物参数在 `TERMITEScriptFolder/mineral_formulas.csv`，内置 8 种（无此文件时自动用内置表）：
+矿物参数在 `TERMITEScriptFolder/mineral_formulas.csv`，内置 11 种（无此文件时自动用内置表）：
 
-| name | 化学式 | mode | fixed | 说明 |
-|---|---|---|---|---|
-| scheelite | CaWO₄ | anhydrous | — | 白钨矿 |
-| cassiterite | SnO₂ | anhydrous | — | 锡石 |
-| zircon | ZrSiO₄ | anhydrous | — | 锆石 |
-| fluorapatite | Ca₅(PO₄)₃F | apatite | — | 氟磷灰石 |
-| muscovite | KAl₂(AlSi₃)O₁₀(OH,F)₂ | mica | — | 白云母 |
-| biotite | K(Mg,Fe)₃(AlSi₃)O₁₀(OH,F)₂ | mica | — | 黑云母 |
-| beryl | Be₃Al₂Si₆O₁₈ | fixed | `Be:3` | 绿柱石 |
-| tourmaline | Na(Mg,Fe)₃Al₆Si₆O₁₈(BO₃)₃(OH)₄ | fixed | `B:3;Si:6` | 电气石 |
+| name | 化学式 | mode | n_cat | fixed | 说明 |
+|---|---|---|---|---|---|
+| scheelite | CaWO₄ | anhydrous | — | — | 白钨矿 |
+| cassiterite | SnO₂ | anhydrous | — | — | 锡石 |
+| **zircon** | ZrSiO₄ | fixed | — | `Si:1` | 锆石（默认，不需要测 Si） |
+| zircon_full | ZrSiO₄ | anhydrous | — | — | 锆石（含 Si 通道的电荷归一化，交叉校验用） |
+| fluorapatite | Ca₅(PO₄)₃F | apatite | — | — | 氟磷灰石 |
+| muscovite | KAl₂(AlSi₃)O₁₀(OH,F)₂ | mica | — | — | 白云母 |
+| biotite | K(Mg,Fe)₃(AlSi₃)O₁₀(OH,F)₂ | mica | — | — | 黑云母 |
+| beryl | Be₃Al₂Si₆O₁₈ | fixed | — | `Be:3` | 绿柱石 |
+| tourmaline | Na(Mg,Fe)₃Al₆Si₆O₁₈(BO₃)₃(OH)₄ | fixed | — | `B:3;Si:6` | 电气石 |
+| **magnetite** | Fe₃O₄ | stoich | 3 | — | 磁铁矿（尖晶石，阳离子位点 3） |
+| **chromite** | FeCr₂O₄ | stoich | 3 | — | 铬铁矿（尖晶石，阳离子位点 3） |
+
+界面下拉框直接列出这张表里的 `name · 说明`，加矿物就是加一行 CSV。
 
 想加新矿物：在 CSV 里加一行
-（`name / formula / mode / n_O / n_F / n_OH / fixed / excluded`）。
+（`name / formula / mode / n_O / n_F / n_OH / n_cat / fixed / excluded`）。
+- `mode = stoich` 时 `n_cat` 填**阳离子位点总数**（尖晶石 = 3）；其余模式填 0。
 - `excluded` 是「测不准、要按结构式理论补」的元素，归算函数里 P / K 是写死的
   （对应 apatite 补 P、mica 补 K）；
 - `fixed` 是「配位数固定、要按结构式固定 a.p.f.u. 扣除」的阳离子（`元素:个数`，多个用
@@ -502,6 +576,100 @@ Ta 的含量只有 0.05 µg/g 量级，已经贴着信噪比的地板。
 | 数据里有一串异常测点 | 两法都跑一遍，交叉印证 |
 
 
+## 6.2 实测对照二：一批锆石，三种口径差多少
+
+白钨矿那一批解决的是"要不要内标"，锆石这批要解决的是另一个问题：
+**同一个矿物，归一化用哪条约束**。锆石正好有三种口径可以摆在一起比。
+
+**数据**：某锆石批次，30 个锆石测点；Qtegra（iCAP RQ）导出，42 个通道
+（²⁹Si、³⁹K、⁴³Ca、⁴⁹Ti、…、⁹¹Zr、REE、¹⁷⁸Hf、²³²Th、²³⁸U）。
+定标 NIST 612（4 个文件），BIR-1G / BCR-2G / BHVO-2G / Tanz 作 QC，
+`layout = "flat"`，积分窗口 25–60（背景）/ 70–118（信号）。
+
+**三种口径**：
+
+| 口径 | 做法 | 归一化依据 |
+|---|---|---|
+| **A 内标法** | Zr 作内标，`C_IS = 497700`（锆石 Zr 化学计量 49.77 wt%） | 内标元素含量 |
+| **B 公式法 `zircon`** | 固定 Si = 1 apfu，Zr 位电荷配平 4（4.5 节） | 结构式（不含 Si 通道） |
+| **C 公式法 `zircon_full`** | 全部阳离子（**含 ²⁹Si**）一起配平 8 个电荷 | 结构式（含 Si 通道） |
+
+<figure>
+<svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="250" fill="#FFFFFF"/>
+<text x="12" y="18" font-size="12.5" fill="#26251F" font-weight="700">锆石里 Zr 与 Si 的化学计量是已知的：Zr 49.77 wt%、Si 15.32 wt%</text>
+<text x="12" y="34" font-size="10.5" fill="#8A8880">三种口径各自算出来的值／化学计量——谁离 100% 最近，谁就更可信</text>
+<rect x="150" y="44" width="11" height="11" fill="#4C43AE"/><text x="166" y="53" font-size="9.5" fill="#5F5E5A">A 内标法（Zr = 497700）</text>
+<rect x="298" y="44" width="11" height="11" fill="#0E6650"/><text x="314" y="53" font-size="9.5" fill="#5F5E5A">B 公式法 zircon（固定 Si = 1）</text>
+<rect x="470" y="44" width="11" height="11" fill="#A2681C"/><text x="486" y="53" font-size="9.5" fill="#5F5E5A">C 公式法 zircon_full（含 Si 通道）</text>
+<line x1="460" y1="62" x2="460" y2="228" stroke="#9B2B2B" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="460" y="238" font-size="9" fill="#9B2B2B" text-anchor="middle">化学计量 100%</text>
+<text x="16" y="84" font-size="11" fill="#26251F" font-weight="700">Zr</text>
+<rect x="60" y="70" width="400" height="16" rx="4" fill="#4C43AE"/><text x="470" y="82" font-size="9.5" fill="#5F5E5A">497700 · 100%（钉死）</text>
+<rect x="60" y="92" width="389" height="16" rx="4" fill="#0E6650"/><text x="470" y="104" font-size="9.5" fill="#5F5E5A">484787 · 97.4%</text>
+<rect x="60" y="114" width="365" height="16" rx="4" fill="#A2681C"/><text x="470" y="126" font-size="9.5" fill="#5F5E5A">454333 · 91.3%</text>
+<text x="16" y="182" font-size="11" fill="#26251F" font-weight="700">Si</text>
+<rect x="60" y="168" width="496" height="16" rx="4" fill="#4C43AE"/><text x="566" y="180" font-size="9.5" fill="#5F5E5A">189974 · 124%</text>
+<rect x="60" y="190" width="397" height="16" rx="4" fill="#0E6650"/><text x="566" y="202" font-size="9.5" fill="#5F5E5A">152015 · 99.2%</text>
+<rect x="60" y="212" width="448" height="16" rx="4" fill="#A2681C"/><text x="566" y="224" font-size="9.5" fill="#5F5E5A">171704 · 112%</text>
+<text x="12" y="248" font-size="9" fill="#8A8880">²⁹Si 通道在这批数据上高出化学计量约 24% → C 口径把这份虚高带进了电荷求和，Zr 被压低 8.7%</text>
+</svg>
+<figcaption>图 5　<b>Zr 和 Si 的化学计量是锆石的"标准答案"</b>，于是三种口径谁更准一目了然。A 口径的 Zr 是人为钉死的（100% 是定义，不是结果），所以只能看它给出的 Si——比化学计量高 24%，说明 ²⁹Si 这个通道不可信。B 口径不用 Si，Zr 落在 97.4%（与白钨矿批次里 W 的 −2.6% 同量级，像是标样带来的系统项），Si 是"按结构式补出来的"，落在 99.2% 属同一个约束的必然结果。C 口径让虚高的 Si 参与配平，所有元素被同步压低 5–8%。</figcaption>
+</figure>
+
+**微量元素（30 个测点的中位数，µg/g）**：
+
+| 元素 | A 内标法 | B 公式法 `zircon` | C 公式法 `zircon_full` | B vs A | C vs B |
+|---|---|---|---|---|---|
+| Zr | 497700 | 484787 | 454333 | −2.6% | −6.3% |
+| Hf | 11673 | 11268 | 10608 | −3.5% | −5.9% |
+| Th | 382 | 396 | 375 | +3.4% | −5.3% |
+| Yb | 624 | 624 | 589 | −0.0% | −5.5% |
+| Lu | 86.2 | 87.4 | 82.5 | +1.4% | −5.6% |
+| Dy | 267 | 295 | 271 | +10.5% | −8.2% |
+| Y | 2217 | 2483 | 2290 | +12.0% | −7.8% |
+| U | 638 | 756 | 711 | +18.5% | −6.0% |
+
+含量高、信号远离噪声的元素（Hf、Th、Yb、Lu）在 A、B 两法之间只差 0～3.5%；
+往下走到 Dy、Y、U，差就开到 10–18%；
+再往下到 LREE、Nb、Ta、Ca、Fe、Ti（中位数只有 0.1–20 µg/g），两法差 20–180%。
+
+### 三条结论
+
+1. **锆石默认走 B（固定 Si = 1），不用 ²⁹Si 通道。**
+   C 口径的问题不是公式错，是**输入不可信**：²⁹Si 在这批数据上高出化学计量约 24%
+   （用硅酸盐玻璃标样定 Si，去归算锆石基体，本身就跨基体），
+   把它放进电荷求和，等于让一个偏高的主量元素去"抢"配平份额，结果所有元素同步偏低 5–8%。
+   这也解释了为什么文献里锆石微量元素普遍用 Zr（或化学计量）作内标、而不是 Si。
+   `zircon_full` 保留在表里的唯一用途就是这个交叉校验：**两个口径的差 ≈ 你自己的
+   ²⁹Si 通道偏了多少**。
+
+2. **A 与 B 的差异，绝大部分是"含量低"而不是"方法不同"。**
+   把元素按含量排一遍就能看出来：差 <4% 的都是 Hf、Th、Yb、Lu 这类信号强的；
+   差 >20% 的 La、Nd、Sm、Nb、Ta、Ca、Fe 中位数都在 20 µg/g 以下，
+   在噪声地板附近，两法各自都不稳定（这批里 LREE 的批内 RSD 高达几百个百分点）。
+   **不要把这部分差异当成方法系统差去"校正"**——它们只是都测不准。
+
+3. **内标法依旧会抹平样品间的真实差异。**
+   内标法 Zr 的批内 RSD = 0.0%（被 `C_IS` 钉死），公式法 Zr 的 RSD = 3.0%；
+   和白钨矿那批看到的是同一件事：内标法默认"所有测点内标含量相同"，
+   于是 Zr 偏低（Hf、REE 替代多或含包裹体）的测点，其全部元素被同步抬高。
+
+> **复现**：把 `cfg$dir` 指向该批次、`layout = "flat"`、`ref_names = "SRM 612"`、
+> `qc_names = c("BIR-1G","BCR-2G","BHVO-2G","Tanz")`、窗口 25/60/70/118，
+> 分别跑 `termite_run_formula(cfg, "zircon")` 与 `termite_run_formula(cfg, "zircon_full")`；
+> 内标法那一路设 `column_IS = 13`（⁹¹Zr，含时间列）、`is_conc = 497700`。
+
+### 那磁铁矿呢
+
+磁铁矿 / 铬铁矿（4.6 节 `stoich`）目前**只过了代数自检**：
+构造已知成分 → 反推 cps → 还原，相对偏差 <1e-16；
+纯 Fe₃O₄ 端元下算出的 Fe = 72.36 wt%，与化学式一致。
+**还没有真实磁铁矿数据跑过端到端**——如果你手上有磁铁矿/铬铁矿的批次数据，
+建议按 6.2 的同样方式做一次对照（内标法用 Fe 化学计量 72.36 wt% 作 `C_IS`，
+公式法选 `magnetite`），两者的差就是对该矿物"化学计量假设"的实际检验。
+
+
 ## 7. 局限与注意事项
 
 1. **公式法目前没有检出限（LoD）截断，这一点和内标法完全不同。**
@@ -528,6 +696,18 @@ Ta 的含量只有 0.05 µg/g 量级，已经贴着信噪比的地板。
    - 电气石 **OH/F 按 4 个 OH** 近似，绿柱石**通道水与通道碱金属被忽略**。
    因此绿柱石尚属稳健（只扣一个 Be），电气石只能当作**半定量**，结果要和内标法
    或其它独立手段对拍后再用。
+8. **锆石的 Si 是"补"出来的，不是测出来的**（`zircon` 默认口径）。
+   Si 含量恒等于结构式给的 1 apfu 换算值（纯 ZrSiO₄ 为 15.32 wt%），
+   **不能拿来讨论 Si 的变化**；想看 ²⁹Si 通道实际偏多少，用 `zircon_full` 对拍（6.2 节）。
+   反过来，Zr 位上若有大量非 +4 的元素（如 REE³⁺ 的磷钇矿式替代），
+   电荷配平会略有偏差，但 ppm 级替代的影响远小于 1%。
+9. **磁铁矿 / 铬铁矿（stoich）的假设是"阳离子总数 = 3"**：
+   - 若样品里有**大量非晶格 Fe**（包裹体里的硫化物、蚀变赤铁矿化），
+     或测点打到包裹体，位点约束会把 Fe 算低、其它元素算高。
+   - 尖晶石里若有**空缺或填隙**（非严格 AB₂O₄），位点总数就不再是 3。
+   - 该口径**不使用价态**，因此不受 Fe²⁺/Fe³⁺ 比影响——这正是选它的原因；
+     代价是它假设 O = 4 且不含 OH（含 OH 的尖晶石需另行建模）。
+   - 目前只有代数自检，**未经真实数据验证**，见 6.2 节末尾。
 
 ---
 
@@ -541,7 +721,12 @@ Ta 的含量只有 0.05 µg/g 量级，已经贴着信噪比的地板。
 - 白云母：Na / Al / Si 还原 + K 理论补；
 - 绿柱石：Al / Cr / Sc / Si 还原 + Be 理论补，电荷目标 = 30；
 - 电气石：Na / Ca / Mg / Fe / Al 还原 + B、Si 理论补，电荷目标 = 25；
-- `mineral_formulas.csv` 解析（8 种矿物、含逗号的化学式加引号）；
+- 锆石（`fixed`，Si:1）：Zr / Hf 还原 + Si 理论补，电荷目标 = 4；
+  纯 ZrSiO₄ 反算得 Zr 49.77 wt%、Si 15.32 wt%（与化学计量一致）；
+- 磁铁矿（`stoich`）：Fe / Ti / Mg / Al 还原，位点目标 = 3；
+  纯 Fe₃O₄ 反算得 Fe 72.36 wt%；
+- 铬铁矿（`stoich`）：Fe / Cr / Mg 还原，apfu 总和 = 3；
+- `mineral_formulas.csv` 解析（11 种矿物、含逗号的化学式加引号）；
 - 真实白钨矿数据端到端冒烟：W 中位数落在化学计量值 ±5% 内。
 
 ```bash
