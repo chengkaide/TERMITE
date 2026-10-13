@@ -223,3 +223,81 @@ termite_plot_blank <- function(res, files = 1L, which = c("ref", "sample")) {
           cex.names = 0.8)
   box(bty = "l")
 }
+
+
+# =============================================================================
+#  积分窗口预览（界面「微量元素处理 · 区间选择」页用）
+# =============================================================================
+
+#' 单点信号曲线 + 窗口叠加预览
+#'
+#' 横轴用**文件真实行号**，不是矩阵行号也不是行内序号：这样界面上的滑块、拖框
+#' 给出的行号可以**原样**写进归算参数（cfg$first_signal / last_signal），
+#' 中间不需要任何换算——行号换算是这类窗口工具最容易出错的地方，一处错位整张
+#' 图就与归算对不上，而且不会报错。上轴另标时间，供判读剥蚀时长。
+#'
+#' @param t,x   时间（s）与单通道净信号（cps），等长
+#' @param x0    第一个数据点对应的文件行号（= cfg$signal_line）
+#' @param bg,sig 当前选定的背景窗 / 信号窗（**文件行号**，长度 2）
+#' @param auto  算法建议的信号窗（虚线参照），NULL 不画
+#' @param cur   现行配置的信号窗（点线参照），NULL 不画
+#' @return 隐式返回横轴坐标（文件行号），供调用方核对
+termite_plot_window <- function(t, y, x0 = 1L, bg = NULL, sig = NULL,
+                                auto = NULL, cur = NULL, main = "",
+                                log_y = TRUE, ylab = "cps") {
+  n <- length(y)
+  if (!n) stop("没有数据点")
+  x <- seq_len(n) + as.integer(x0) - 1L
+  ylim <- .panel_ylim(y)
+  # 上边距留 4.4 行，从下到上依次排：刻度数字 / 「时间 (s)」 / 图标题，三层不打架；
+  # 左边距 4.8 + mgp[1]=3.0：y 轴刻度是「2e+06」这种宽标签，las=1 横排后需要更多空间。
+  op <- .begin_canvas(c(3.8, 4.8, 4.4, 1.2), NULL, c(3.0, 0.8, 0))
+  on.exit(par(op))
+
+  band <- function(rng, fill, border) {
+    if (is.null(rng) || length(rng) != 2L || !all(is.finite(rng))) return(invisible(NULL))
+    if (rng[1] == rng[2]) return(invisible(NULL))
+    rect(min(rng), ylim[1], max(rng), ylim[2], col = fill, border = border, lwd = 1)
+  }
+
+  plot(NA, xlim = range(x), ylim = ylim, log = if (log_y) "y" else "",
+       xlab = "文件行号", ylab = ylab, main = "", las = 1,
+       xaxs = "i", yaxs = "i", bty = "l")
+  grid(col = .termite_theme$grid, lty = 1)
+  band(bg,  "#3182ce2e", "#3182ce")          # 背景窗：蓝
+  band(sig, "#38a1692e", "#38a169")          # 信号窗：绿
+  # 参照线画在曲线之下、底纹之上，避免盖住曲线
+  if (!is.null(auto) && length(auto) == 2L && all(is.finite(auto)))
+    abline(v = auto, col = "#805ad5", lty = 2, lwd = 1.3)
+  if (!is.null(cur) && length(cur) == 2L && all(is.finite(cur)))
+    abline(v = cur, col = "#c53030", lty = 3, lwd = 1.3)
+
+  yy <- as.numeric(y)
+  if (log_y) yy[!is.finite(yy) | yy <= 0] <- NA   # 对数轴下非正值必须剔，否则 lines() 报警
+  lines(x, yy, col = .termite_theme$line, lwd = 1.1)
+  box(bty = "l")
+
+  # 上轴：时间。用 approx 把秒映射回行号，只在整点处标，避免与曲线打架
+  tt <- as.numeric(t)
+  ok <- is.finite(tt) & is.finite(x)
+  if (sum(ok) >= 2L) {
+    at <- pretty(range(tt[ok]), 6)
+    at <- at[at >= min(tt[ok]) & at <= max(tt[ok])]
+    if (length(at)) {
+      rw <- stats::approx(tt[ok], x[ok], xout = at, rule = 2)$y
+      axis(3, at = rw, labels = formatC(at, format = "g", digits = 3),
+           cex.axis = 0.72, tcl = -0.22, line = 0.55, col.axis = .termite_theme$muted)
+      mtext("时间 (s)", side = 3, line = 2.0, cex = 0.72, col = .termite_theme$muted)
+    }
+  }
+  if (nzchar(main)) mtext(main, side = 3, line = 3.2, cex = 1.0, font = 2)
+  # 图例压在背景窗底纹上，给个半透明白底才读得清（bty="o" + 淡边框）
+  legend("topleft", bty = "o", bg = "#ffffffdc", box.col = "#cbd5e0",
+         cex = 0.78, inset = 0.012,
+         legend = c("背景窗", "信号窗", "算法建议", "现行配置"),
+         fill = c("#3182ce4d", "#38a1694d", NA, NA),
+         border = c("#3182ce", "#38a169", NA, NA),
+         lty = c(NA, NA, 2, 3), lwd = c(NA, NA, 1.3, 1.3),
+         col = c(NA, NA, "#805ad5", "#c53030"))
+  invisible(x)
+}

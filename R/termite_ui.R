@@ -282,6 +282,93 @@ termite_ui <- function() {
           downloadButton("dl_formula", "下载公式法结果 CSV")
         )
       )
-    )
+    ),
+
+    tabPanel("微量元素处理 · 区间选择",
+      div(style = "font-size:12.5px;color:#718096;margin:2px 0 6px",
+          "逐点查看剥蚀曲线、划定背景窗与信号窗 —— 只出窗口建议，不改动已有结果"),
+      sidebarLayout(
+        sidebarPanel(
+          width = 3, class = "sidebar",
+
+          acc("① 扫描范围", open = TRUE,
+            textInput("win_dir", "原始信号目录", ""),
+            actionButton("win_dir_fill", "按「内标法归算」页的目录填", class = "btn-sm"),
+            div(style = "height:6px"),
+            selectizeInput("win_ch", "定窗通道（文件表头里的原始写法）",
+                           choices = NULL, multiple = FALSE,
+                           options = list(create = TRUE,
+                                          placeholder = "留空＝自动挑信号最强的")),
+            div(style = "font-size:11.5px;color:#718096",
+                "选信号最强的通道，剥蚀边界最清楚。留空时程序在第一个文件上自动挑一个。"),
+            div(style = "height:6px"),
+            actionButton("win_scan", "▶  扫描并自动定窗", class = "btn-run btn-primary"),
+            div(style = "height:8px"),
+            uiOutput("win_status")
+          ),
+
+          acc("② 定窗参数", open = TRUE,
+            numin("win_sw",   "平滑窗（奇数）", 5),
+            numin("win_hi_k", "上升阈值（背景倍数）", 5, step = 0.5),
+            numin("win_lo_k", "下降阈值（背景倍数）", 3, step = 0.5),
+            numin("win_run",  "连续点数（抗孤立尖峰）", 3),
+            numin("win_lead", "信号窗左留余量（行）", 6),
+            numin("win_tail", "信号窗右留余量（行）", 8),
+            sliderInput("win_q", "统一窗口覆盖比例", min = 0.50, max = 1,
+                        value = 0.90, step = 0.01),
+            div(style = "font-size:11.5px;color:#718096",
+                "越大越保守：左界取更高分位、右界取更低分位。"),
+            actionButton("win_recalc", "按上面的参数重算", class = "btn-sm")
+          ),
+
+          acc("③ 显示与交互",
+            checkboxInput("win_log", "纵轴对数", TRUE),
+            radioButtons("win_brush_to", "在图上拖框时改哪个窗口",
+                         c("信号窗" = "sig", "背景窗" = "bg"), inline = TRUE),
+            div(style = "font-size:11.5px;color:#718096",
+                "拖框只是快捷方式；滑块上的数字才是真值。")
+          )
+        ),
+
+        mainPanel(
+          width = 9,
+          div(class = "ok-box",
+              "本页只做一件事：从信号曲线自己的形态里量出「剥蚀在哪里开始、在哪里结束」，",
+              "给出每一点建议的积分窗口供你核对或修改。",
+              "改窗口**不会**自动重算——回「内标法归算」页点运行才生效。"),
+          uiOutput("win_head"),
+          uiOutput("win_slider_ui"),
+          plotOutput("win_plot", height = "430px",
+                     brush = brushOpts("win_brush", direction = "x", resetOnNew = TRUE)),
+          uiOutput("win_point_btns"),
+          h4("这一点的窗口指标"),
+          uiOutput("win_kpi"),
+          h4("全批对照（现行 / 算法建议 / 你的选择）"),
+          div(style = "font-size:12px;color:#718096",
+              "「偏离算法」标出你手动改动过的测点；只有这些点需要复核。"),
+          tableOutput("win_tbl"),
+          downloadButton("dl_win_manual", "下载手动窗口配置 CSV"),
+          downloadButton("dl_win_auto", "下载自动窗口建议 CSV"),
+          h4("折成一对「统一窗口」"),
+          div(style = "font-size:12px;color:#718096",
+              "内核对全批只接受同一组窗口，所以必须折成一对数字。",
+              "严格＝覆盖全部测点（最保守），稳健＝覆盖九成测点。"),
+          tableOutput("win_union_tbl"),
+          radioButtons("win_union_pick", "回填哪一档",
+                       c("算法建议 · 严格" = "auto_strict",
+                         "算法建议 · 稳健" = "auto_robust",
+                         "你的选择 · 严格" = "man_strict",
+                         "你的选择 · 稳健" = "man_robust",
+                         "现行配置" = "cur")),
+          radioButtons("win_fill_to", "回填到哪一组参数",
+                       c("样品窗口" = "sample", "参考物质窗口" = "ref"), inline = TRUE),
+          actionButton("win_fill", "回填到「内标法归算」页的积分窗口参数",
+                       class = "btn-primary"),
+          div(style = "font-size:11.5px;color:#718096",
+              "只改参数、不触发计算：回上一页点运行，才会用新窗口重算。"),
+          uiOutput("win_fill_note")
+        )
+      )
+    ),
   )
 }
