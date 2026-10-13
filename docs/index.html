@@ -144,6 +144,26 @@
   .b-g{background:#2E8B57}
   .b-n{background:#6B7280}
 
+  /* ---------- 应用案例 ---------- */
+  .case{background:linear-gradient(180deg,#FFFFFF,#F7F6F2);border:1px solid var(--line);
+        border-radius:16px;padding:24px 26px 22px;margin:0 0 22px;
+        box-shadow:0 1px 2px rgba(38,37,31,.03)}
+  .case-head{display:flex;align-items:center;gap:11px;margin:0 0 4px;flex-wrap:wrap}
+  .case-no{font-size:11.5px;font-weight:700;letter-spacing:.06em;color:#fff;
+        background:var(--pur);padding:3px 11px;border-radius:999px;white-space:nowrap}
+  .case-head h3{margin:0;font-size:18px}
+  .case .meta{font-size:12.5px;color:var(--ink3);margin:0 0 14px;
+        padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .case figure{margin:0 0 4px}
+  .facts{list-style:none;margin:16px 0 0;padding:0;
+        display:grid;grid-template-columns:1fr 1fr;gap:9px 26px}
+  @media(max-width:760px){.facts{grid-template-columns:1fr}}
+  .facts li{font-size:13.5px;color:var(--ink2);line-height:1.7;
+        padding-left:17px;position:relative}
+  .facts li::before{content:"";position:absolute;left:0;top:9px;width:7px;height:7px;
+        border-radius:2px;background:var(--tealine)}
+  .facts b{color:var(--ink);font-weight:600}
+
   /* ---------- 引用 / BibTeX ---------- */
   .cite-block{background:var(--panel2);border:1px solid var(--line);border-radius:12px;
        padding:16px 20px;margin:0 0 14px}
@@ -162,6 +182,7 @@
       <a href="#features">功能</a>
       <a href="#methods">定标策略</a>
       <a href="#quickstart">快速开始</a>
+      <a href="#cases">案例</a>
       <a href="#docs">文档</a>
       <a href="#cite">引用</a>
       <a class="gh" href="https://github.com/chengkaide/TERMITE">GitHub ↗</a>
@@ -258,9 +279,162 @@ shiny::<span class="f">runApp</span>(<span class="s">"."</span>)</code></pre>
   --is 182W --is-conc 638500 --blank 25,60 --signal 70,118</code></pre>
   </section>
 
+  <!-- ===================== 应用案例 ===================== -->
+  <section id="cases">
+    <h2>应用案例</h2>
+    <div class="lead">
+      <p>下面两个案例都用<b>真实批次数据</b>跑通，样品号已脱敏。
+        它们回答的不是“软件能不能跑”，而是两个更要紧的问题：
+        <b>换一条定标路径，结果会不会变</b>；
+        <b>同一种矿物有多个归一化口径时，怎么判断哪个对</b>。</p>
+    </div>
+
+    <!-- ---------- 案例 1 ---------- -->
+    <div class="case">
+      <div class="case-head">
+        <span class="case-no">案例 1</span>
+        <h3>白钨矿：两种定标策略的交叉验证</h3>
+      </div>
+      <p class="meta">一批真实白钨矿 · 40 个有效测点 · SRM 610 / 612 定标 · 点分析</p>
+      <p>同一份原始信号走两条路：一路用 W 作内标
+        （<code class="inline">C_IS = 638500 µg/g</code>），一路用 CaWO₄ 的电荷平衡归一。
+        两法在数学上等价，但<b>独立实现之后会不会给出同一个答案</b>？
+        把 W 从对比里剔掉之后（内标法对它是零信息量），
+        剩下的元素才是真正的交叉验证。</p>
+      <figure>
+<svg viewBox="0 0 680 348" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="348" fill="#FFFFFF"/>
+<text x="12" y="18" font-size="12.5" fill="#26251F" font-weight="700">同一批 40 个白钨矿测点：两条定标路径给出的元素含量差多少</text>
+<text x="12" y="35" font-size="10.5" fill="#8A8880">横轴 = 公式法相对内标法的中位差（%）；0 处为完全一致</text>
+<line x1="130.0" y1="46" x2="130.0" y2="238" stroke="#F1EFE8" stroke-width="1"/>
+<line x1="257.5" y1="46" x2="257.5" y2="238" stroke="#F1EFE8" stroke-width="1"/>
+<line x1="512.5" y1="46" x2="512.5" y2="238" stroke="#F1EFE8" stroke-width="1"/>
+<line x1="640.0" y1="46" x2="640.0" y2="238" stroke="#F1EFE8" stroke-width="1"/>
+<line x1="130" y1="62" x2="640" y2="62" stroke="#F5F3EC" stroke-width="1"/>
+<line x1="130" y1="94" x2="640" y2="94" stroke="#F5F3EC" stroke-width="1"/>
+<line x1="130" y1="126" x2="640" y2="126" stroke="#F5F3EC" stroke-width="1"/>
+<line x1="130" y1="158" x2="640" y2="158" stroke="#F5F3EC" stroke-width="1"/>
+<line x1="130" y1="190" x2="640" y2="190" stroke="#F5F3EC" stroke-width="1"/>
+<line x1="130" y1="222" x2="640" y2="222" stroke="#F5F3EC" stroke-width="1"/>
+<line x1="385.0" y1="46" x2="385.0" y2="238" stroke="#C9C7BD" stroke-width="1" stroke-dasharray="3 3"/>
+<rect x="369.7" y="53" width="15.3" height="18" rx="3" fill="#0E6650"/>
+<text x="122" y="66" font-size="11" fill="#26251F" text-anchor="end">Ca</text>
+<text x="363.7" y="66" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="end">−1.2%</text>
+<rect x="369.7" y="85" width="15.3" height="18" rx="3" fill="#0E6650"/>
+<text x="122" y="98" font-size="11" fill="#26251F" text-anchor="end">REE 总量</text>
+<text x="363.7" y="98" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="end">−1.2%</text>
+<rect x="345.5" y="117" width="39.5" height="18" rx="3" fill="#0E6650"/>
+<text x="122" y="130" font-size="11" fill="#26251F" text-anchor="end">Sr</text>
+<text x="339.5" y="130" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="end">−3.1%</text>
+<rect x="344.2" y="149" width="40.8" height="18" rx="3" fill="#0E6650"/>
+<text x="122" y="162" font-size="11" fill="#26251F" text-anchor="end">Nb</text>
+<text x="338.2" y="162" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="end">−3.2%</text>
+<rect x="255.0" y="181" width="130.0" height="18" rx="3" fill="#A2681C"/>
+<text x="122" y="194" font-size="11" fill="#26251F" text-anchor="end">Mg</text>
+<text x="249.0" y="194" font-size="10.5" fill="#A2681C" font-weight="600" text-anchor="end">−10.2%</text>
+<rect x="385.0" y="213" width="227.0" height="18" rx="3" fill="#9B2B2B"/>
+<text x="122" y="226" font-size="11" fill="#26251F" text-anchor="end">Ta</text>
+<text x="618.0" y="226" font-size="10.5" fill="#9B2B2B" font-weight="600" text-anchor="start">+17.8%</text>
+<text x="130.0" y="254" font-size="10" fill="#8A8880" text-anchor="middle">−20%</text>
+<text x="257.5" y="254" font-size="10" fill="#8A8880" text-anchor="middle">−10%</text>
+<text x="385.0" y="254" font-size="10" fill="#8A8880" text-anchor="middle">0%</text>
+<text x="512.5" y="254" font-size="10" fill="#8A8880" text-anchor="middle">10%</text>
+<text x="640.0" y="254" font-size="10" fill="#8A8880" text-anchor="middle">20%</text>
+<text x="12" y="278" font-size="11" fill="#5F5E5A">Ca、REE 总量差 1% 上下，Sr / Nb 在 3% 以内 —— 两条完全不同的定标路径（RSF vs λ）给出同一答案。</text>
+<text x="12" y="296" font-size="11" fill="#5F5E5A">单元素 La / Ce / Yb / Lu 落在 ±0.8% ~ ±2.5%；偏离最大的是低含量、跨基体敏感的 Mg 与 Ta。</text>
+<text x="12" y="320" font-size="11" fill="#7D4A0A" font-weight="600">W 不在这张图里：内标法把 W 钉成输入值 638500（信息量为 0），公式法独立算出 621701。</text>
+</svg>
+        <figcaption>图 A · 两种定标策略的元素含量中位差。
+          主量与稀土总量稳在 1% 上下、绝大部分微量元素在 3% 以内，
+          只有 Mg、Ta 这类低含量元素偏到 10%~20%。
+          完整对照见 <a href="FORMULA_CAL.html">FORMULA_CAL.html</a> §6.1。</figcaption>
+      </figure>
+      <ul class="facts">
+        <li><b>内标法对 W 没有信息量</b>：40 个测点全部等于输入的 638500 µg/g，批内 RSD = 0%</li>
+        <li><b>公式法独立算出 W = 621701</b>（范围 505929 ~ 626166），与 EPMA 标称值差 −2.6%</li>
+        <li><b>主量一致</b>：Ca 差 −1.2%；批内 RSD 内标法 12.3% → 公式法 6.4%</li>
+        <li><b>REE 总量差 −1.2%</b>，La / Ce / Yb / Lu 单元素在 ±0.8% ~ ±2.5%</li>
+        <li><b>偏离最大</b>：Mg −10.2%、Ta +17.8%，均属低含量 / 跨基体敏感元素</li>
+        <li><b>异常测点两法同时标红</b>：S-A-10（W −20.8%、Ca −23.2%）——分歧有时是样品真相</li>
+      </ul>
+    </div>
+
+    <!-- ---------- 案例 2 ---------- -->
+    <div class="case">
+      <div class="case-head">
+        <span class="case-no">案例 2</span>
+        <h3>锆石：四种归一化口径的判别</h3>
+      </div>
+      <p class="meta">一批真实锆石 · 30 个测点 · 42 个同位素通道 → 去重后 38 个元素</p>
+      <p>锆石有个便利：<b>Zr、Si 的化学计量是已知的</b>
+        （Zr 49.77 wt%、Si 15.32 wt%），于是“用哪条约束归一”这个问题
+        有了标准答案可以对照。把四种口径并排——
+        <b>Zr 内标、Si 内标、公式法（固定 Si = 1）、公式法（含 Si 全配平）</b>
+        ——<b>只有一种同时通过两道检验</b>。</p>
+      <figure>
+<svg viewBox="0 0 680 402" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
+<rect width="680" height="402" fill="#FFFFFF"/>
+<text x="12" y="18" font-size="12.5" fill="#26251F" font-weight="700">一批锆石、30 个测点：四种归一化口径，谁自洽？</text>
+<text x="12" y="35" font-size="10.5" fill="#8A8880">锆石的 Zr、Si 化学计量是已知的（Zr 49.77、Si 15.32 wt%）——“该用哪条约束归一”有了标准答案</text>
+<rect x="474" y="49" width="10" height="10" rx="2" fill="#0E6650"/>
+<text x="489" y="58" font-size="10" fill="#5F5E5A">通过这道检验</text>
+<rect x="558" y="49" width="10" height="10" rx="2" fill="#B7B5AC"/>
+<text x="573" y="58" font-size="10" fill="#5F5E5A">未通过</text>
+<text x="16" y="58" font-size="11" fill="#26251F" font-weight="700">① 主量氧化物总和（wt%）——锆石必须闭合到 100</text>
+<line x1="60" y1="135.0" x2="660" y2="135.0" stroke="#9B2B2B" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="662" y="130.0" font-size="9.5" fill="#9B2B2B" text-anchor="end">100</text>
+<rect x="76" y="94.7" width="68" height="110.3" rx="4" fill="#B7B5AC"/>
+<text x="110" y="88.7" font-size="10.5" fill="#B7B5AC" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">111.5</text>
+<rect x="194" y="172.7" width="68" height="32.3" rx="4" fill="#B7B5AC"/>
+<text x="228" y="166.7" font-size="10.5" fill="#B7B5AC" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">89.2</text>
+<rect x="312" y="135.0" width="68" height="70.0" rx="4" fill="#0E6650"/>
+<text x="346" y="129.0" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">100.0</text>
+<rect x="430" y="135.0" width="68" height="70.0" rx="4" fill="#0E6650"/>
+<text x="464" y="129.0" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">100.0</text>
+<rect x="548" y="135.1" width="68" height="69.9" rx="4" fill="#0E6650"/>
+<text x="582" y="129.1" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">100.0</text>
+<line x1="60" y1="205" x2="660" y2="205" stroke="#D8D6CC" stroke-width="1"/>
+<text x="110" y="222" font-size="9" fill="#5F5E5A" text-anchor="middle">A  Zr内标</text>
+<text x="228" y="222" font-size="9" fill="#5F5E5A" text-anchor="middle">B  Si内标</text>
+<text x="346" y="222" font-size="9" fill="#5F5E5A" text-anchor="middle">C  zircon (Si=1)</text>
+<text x="464" y="222" font-size="9" fill="#5F5E5A" text-anchor="middle">D  zircon_full</text>
+<text x="582" y="222" font-size="9" fill="#5F5E5A" text-anchor="middle">LAB  AYCF</text>
+<text x="16" y="262" font-size="11" fill="#26251F" font-weight="700">② Si : (Zr+Hf) 摩尔比（理想锆石 = 1.000）——比总量闭合灵敏得多</text>
+<line x1="60" y1="357.7" x2="660" y2="357.7" stroke="#9B2B2B" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="662" y="369.7" font-size="9.5" fill="#9B2B2B" text-anchor="end">1.000</text>
+<rect x="76" y="290.5" width="68" height="81.5" rx="4" fill="#B7B5AC"/>
+<text x="110" y="284.5" font-size="10.5" fill="#B7B5AC" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">1.235</text>
+<rect x="194" y="291.8" width="68" height="80.2" rx="4" fill="#B7B5AC"/>
+<text x="228" y="285.8" font-size="10.5" fill="#B7B5AC" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">1.231</text>
+<rect x="312" y="353.1" width="68" height="18.9" rx="4" fill="#0E6650"/>
+<text x="346" y="347.1" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">1.016</text>
+<rect x="430" y="286.7" width="68" height="85.3" rx="4" fill="#B7B5AC"/>
+<text x="464" y="280.7" font-size="10.5" fill="#B7B5AC" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">1.249</text>
+<rect x="548" y="363.5" width="68" height="8.5" rx="4" fill="#0E6650"/>
+<text x="582" y="357.5" font-size="10.5" fill="#0E6650" font-weight="600" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="3">0.980</text>
+<line x1="60" y1="372" x2="660" y2="372" stroke="#D8D6CC" stroke-width="1"/>
+<text x="16" y="394" font-size="10" fill="#8A8880">只有 C（固定 Si = 1）与实验室 AYCF 两道检验全过；D 过第一道、挂在第二道。</text>
+</svg>
+        <figcaption>图 B · 四种口径的两道检验。
+          A、B 的锚定元素是人为钉死的（100% 是定义不是结果），
+          只能看另一半：A 给出的 Si 高出化学计量 25%、B 给出的 Zr 低 20%，
+          两者不可能同时对。完整推导见
+          <a href="FORMULA_CAL.html">FORMULA_CAL.html</a> §6.2。</figcaption>
+      </figure>
+      <ul class="facts">
+        <li><b>主量氧化物总和</b>：A 111.5 / B 89.2 / C 99.99 / D 99.99 wt%（100 wt% 是硬约束）</li>
+        <li><b>Si:(Zr+Hf) 摩尔比</b>（理想 1.000）：A 1.235 / B 1.231 / <b>C 1.016</b> / D 1.248</li>
+        <li><b>⇒ 四个口径中只有「固定 Si = 1」自洽</b>：两道检验同时通过，与实验室 AYCF 的 0.980 同向</li>
+        <li><b>根因是 ²⁹Si 通道偏高约 24%</b>：用硅酸盐玻璃标样定锆石基体，跨基体</li>
+        <li><b>与实验室对照</b>：C 的 SiO₂ 32.38 vs 31.68、ZrO₂ 64.44 vs 65.58 wt%，主量一致到 2% 以内</li>
+        <li><b>D 口径的用途</b>：<code class="inline">zircon_full</code> 保留作交叉校验——两口径之差 ≈ 你自己的 ²⁹Si 偏了多少</li>
+      </ul>
+    </div>
+  </section>
+
   <!-- ===================== 界面结构 ===================== -->
   <section>
-    <h2>界面结构：两个独立页面</h2>
+    <h2>界面结构：三页分工</h2>
     <figure>
 <svg viewBox="0 0 980 640" xmlns="http://www.w3.org/2000/svg" font-family="Microsoft YaHei,PingFang SC,sans-serif">
   <defs>
