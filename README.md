@@ -57,7 +57,7 @@ shiny::runApp(".")
 
 ## 界面功能
 
-界面是**两个顶层页面**（顶部导航切换），各自独立的侧栏与主面板：
+界面是**三个顶层页面**（顶部导航切换），各自独立的侧栏与主面板：
 
 ### 内标法归算
 
@@ -78,6 +78,16 @@ shiny::runApp(".")
 
 选矿物（白钨矿 / 锡石 / 锆石 / 磷灰石 / 云母 / 绿柱石 / 电气石）→ 运行，输出元素浓度、归一化因子与结果表。
 数据目录、参考物质名单、积分窗口沿用「内标法归算」页的设置。
+
+### 微量元素处理 · 区间选择
+
+积分窗口是整条归算链上**唯一靠人工划定的输入**，却决定每个测点的全部元素。
+这一页把它搬到信号曲线上做：扫描整批 → 逐点画 cps 时序图 →
+背景窗（蓝底）与信号窗（绿底）直接落在曲线上 → 拖动改窗、上一个/下一个、
+跳待复核、一键套用到全部 → 导出「自动窗口建议」与「手动复核表」，
+并把选定的窗口回填到「内标法归算」页的参数框。
+
+**它只给建议，不改变任何已有结果**：回填只写参数，要回「内标法归算」页点运行才生效。
 
 ### 数据导入：支持多种仪器格式
 
@@ -218,15 +228,24 @@ R/
   termite_plots.R             全部绘图（base graphics，不用 ggplot2）
   termite_verify.R            与原脚本的一致性自检
   termite_md.R                极简 Markdown 渲染（不依赖 markdown 包）
+  termite_window.R            积分窗口定窗逻辑（界面与命令行共用这一份实现）
   termite_ui.R / _server.R    界面与服务端
 docs/
   HANDBOOK.html               《LA-ICP-MS 微量元素数据处理入门》14 图讲透归算原理（已脱敏）
   PRINCIPLES.md               算法原理与推导
+  FORMULA_CAL.md              无内标校准：矿物化学式归一化（AYCF 家族）
   IMPORT.md                   数据导入：支持的格式、别名表、内标选择
   FIXES.md                    原脚本问题清单与修改说明
   ORIGINAL_README.md          原仓库 README（存档）
 tools/
   run_termite.R               命令行批处理入口
+  window_lib.R                定窗库入口（薄壳，实现在 R/termite_window.R）
+  zircon_methods.R            锆石微量元素四口径归算
+  zircon_compare*.R           四口径对比与出图
+  zircon_window_*.R           积分窗口自动定窗与逐点诊断
+  make_window_picker.R        生成「积分窗口手动复核」单文件 HTML
+  qc_ref_check.R              QC 玻璃参考值查证（PANGAEA / USGS 交叉核对）
+  parse_lab_trace.py          解析实验室 AYCF 报告为长表 CSV
 tests/
   test-parity.R               与原脚本的逐位一致性测试
   test-app.R                  Shiny 服务端集成测试
