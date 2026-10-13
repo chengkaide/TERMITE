@@ -16,6 +16,23 @@ _rtmp.txt
 # 工作助手/本地工作数据
 .workbuddy/
 
+# 本机报告渲染链（模板与产物，暂不随仓库发布）
+report/
+
+# 工具链的本地输出目录（真实结果一律用环境变量指定，通常不落在仓库内）
+_out/
+_tmp/
+
+# LaTeX 中间产物
+*.aux
+*.toc
+*.out
+*.synctex.gz
+
+# Python 字节码缓存
+__pycache__/
+*.pyc
+
 # 系统
 Thumbs.db
 .DS_Store

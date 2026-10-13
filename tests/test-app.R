@@ -118,7 +118,14 @@ cat("\n===================================================================\n")
 cat("  TERMITE Shiny · 服务端集成测试\n")
 cat("===================================================================\n")
 
-qt_dir <- "G:/3.珊瑚钨锡矿床/锡石-白钨矿微量元素/20230806CKDA"
+# 真实数据测试目录由环境变量给出：不把本机路径与批次名写进公开仓库。
+# 用法： TERMITE_TEST_DIR=<批次目录> Rscript tests/test-app.R
+#        （不设则自动跳过下面两个真实数据用例，其余用例照跑）
+qt_dir <- Sys.getenv("TERMITE_TEST_DIR", "")
+qt_raw <- if (dir.exists(qt_dir)) {
+  f <- list.files(qt_dir, pattern = "\\.(csv|asc|txt)$")
+  if (length(f)) f[1L] else ""
+} else ""
 
 run_case("点分析 · 默认参数", list())
 
@@ -151,7 +158,7 @@ if (dir.exists(qt_dir)) {
     qc_mats = c("BIR-1G", "BCR-2G", "BHVO-2G"),
     is_iso_sel = "182W", column_IS = 55, is_conc = 638500,
     first_blank = 25, last_blank = 60, first_signal = 70, last_signal = 118,
-    raw_which = "sample", raw_file = "20230806CKDA_10.csv", raw_rows = c(16, 130)))
+    raw_which = "sample", raw_file = qt_raw, raw_rows = c(16, 130)))
 
   run_case_formula("公式法 · 白钨矿（真实数据）", list(
     dir = qt_dir, layout = "flat", auto_detect = TRUE, dir_sample = "",

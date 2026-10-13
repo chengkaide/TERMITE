@@ -5,7 +5,7 @@
 #  不启动 Shiny 也能跑：
 #
 #    Rscript tools/run_termite.R \
-#      --dir "G:/.../20230806CKDA" \
+#      --dir "G:/.../<批次目录>" \
 #      --layout flat --auto \
 #      --ref "SRM 610,SRM 612" --qc "BIR-1G,BCR-2G,BHVO-2G" \
 #      --is 182W --is-conc 638500 \
