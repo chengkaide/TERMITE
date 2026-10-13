@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>积分窗口手动复核</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --fg:#1a1a1a; --muted:#6b7280; --line:#e3e6ea;
+  --bgwin:#4C78A8; --sig:#2E9E5B; --cur:#E45756; --accent:#1f6feb;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+     font:14px/1.5 "Microsoft YaHei","Segoe UI",system-ui,sans-serif}
+header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);
+       padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+h1{font-size:15px;margin:0 12px 0 0;font-weight:600;white-space:nowrap}
+button{padding:5px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;
+       cursor:pointer;font-size:13px;color:var(--fg)}
+button:hover{background:#f0f2f5}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.primary:hover{background:#1558c0}
+.hint{color:var(--muted);font-size:12px;margin-left:auto}
+main{padding:12px 16px 80px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+      margin-bottom:10px;padding:8px 12px 4px}
+.card h2{font-size:13px;margin:0 0 2px;font-weight:600;display:flex;align-items:baseline;
+         gap:6px;flex-wrap:wrap}
+.meta{color:var(--muted);font-size:11px;font-weight:400}
+.badge{padding:1px 7px;border-radius:10px;font-size:11px;font-weight:400}
+.badge.warn{background:#fdecea;color:#c0392b}
+.badge.ok{background:#e8f5ec;color:#2E9E5B}
+svg{display:block;width:100%;height:148px;touch-action:none;user-select:none}
+.legend{font-size:11px;color:var(--muted);padding:0 0 4px 2px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 3px 0 10px;
+          vertical-align:-1px}
+</style>
+</head>
+<body>
+<header>
+  <h1>积分窗口手动复核</h1>
+  <button id="btnAuto">采用算法建议</button>
+  <button id="btnReset">重置为现行配置</button>
+  <button id="btnExport" class="primary">导出窗口配置 CSV</button>
+  <span class="hint">拖动彩色竖线调整窗口边界 · 默认已载入算法建议</span>
+</header>
+<main id="list"></main>
+
+<script>
+"use strict";
+const D = __DATA__;
+const SL = D.signalLine;          // 数据起始文件行号：文件行 = 数据行 + SL - 1
+const PAD = {l: 52, r: 12, t: 10, b: 18};
+const W = 1000, H = 148;
+const PW = W - PAD.l - PAD.r, PH = H - PAD.t - PAD.b;
+
+const state = D.points.map(p => ({
+  i: p.i, file: p.file, name: p.name, n: p.n, t: p.t, y: p.y,
+  on: p.on, off: p.off, on_s: p.on_s, off_s: p.off_s,
+  snr: p.snr, verdict: p.verdict, cur: p.cur, auto: p.auto,
+  bg1: p.init.bg1, bg2: p.init.bg2, s1: p.init.s1, s2: p.init.s2
+}));
+
+const xOf   = (row, n) => PAD.l + (row - 1) / Math.max(1, n - 1) * PW;
+const rowOf = (x, n)   => Math.max(1, Math.min(n, Math.round((x - PAD.l) / PW * (n - 1)) + 1));
+
+function dataWindow(p){
+  const pos = p.y.filter(v => v > 0);
+  const lmin = Math.log10(Math.max(1e-9, Math.min(...pos)));
+  const lmax = Math.log10(Math.max(...pos));
+  return {lmin, lmax};
+}
+
+function buildCard(p, idx){
+  const card = document.createElement('div');
+  card.className = 'card';
+  const bad = p.verdict && p.verdict !== '正常';
+  card.innerHTML =
+    '<h2>#' + p.i + ' ' + esc(p.name) +
+    '<span class="meta">' + esc(p.file) + ' · 剥蚀 ' + num(p.on_s) + '–' + num(p.off_s) +
+    ' s · 信背比 ' + num(p.snr) + '</span>' +
+    (bad ? '<span class="badge warn">' + esc(p.verdict) + '</span>'
+         : '<span class="badge ok">正常</span>') +
+    '</h2>' +
+    '<div class="legend">' +
+      '<i style="background:#4C78A8"></i>背景窗' +
+      '<i style="background:#2E9E5B"></i>信号窗' +
+      '<i style="background:#E45756"></i>现行信号窗' +
+    '</div>';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.dataset.idx = idx;
+  card.appendChild(svg);
+  return {card, svg};
+}
+
+function draw(p, svg){
+  const {lmin, lmax} = dataWindow(p);
+  const span = Math.max(1e-6, lmax - lmin);
+  const yOf = v => PAD.t + PH - (Math.log10(Math.max(v, 1e-9)) - lmin) / span * PH;
+  const x1 = xOf(1, p.n), x2 = xOf(p.n, p.n);
+
+  let s = '';
+  // 现行窗口（红虚线，仅作参照）
+  [p.cur.s1, p.cur.s2].forEach(r => {
+    const x = xOf(r, p.n);
+    s += '<line x1="' + x + '" y1="' + PAD.t + '" x2="' + x + '" y2="' + (PAD.t + PH) +
+         '" stroke="#E45756" stroke-width="1.2" stroke-dasharray="4 3"/>';
+  });
+  // 背景窗 / 信号窗底纹
+  s += shRect(p.bg1, p.bg2, p.n, '#4C78A8', 0.16);
+  s += shRect(p.s1,  p.s2,  p.n, '#2E9E5B', 0.16);
+  // 坐标轴
+  s += '<line x1="' + PAD.l + '" y1="' + (PAD.t + PH) + '" x2="' + (PAD.l + PW) +
+       '" y2="' + (PAD.t + PH) + '" stroke="#c9ced6" stroke-width="1"/>';
+  // 曲线
+  let pts = '';
+  for (let k = 0; k < p.n; k++) {
+    const v = p.y[k];
+    if (v > 0) pts += xOf(k + 1, p.n).toFixed(1) + ',' + yOf(v).toFixed(1) + ' ';
+  }
+  s += '<polyline points="' + pts + '" fill="none" stroke="#1f4e79" stroke-width="1.1"/>';
+  // 边界手柄
+  s += handle(p.bg1, p.n, p, 0) + handle(p.bg2, p.n, p, 1);
+  s += handle(p.s1,  p.n, p, 2) + handle(p.s2,  p.n, p, 3);
+  // 时间轴两端标签
+  s += '<text x="' + PAD.l + '" y="' + (H - 4) + '" font-size="10" fill="#6b7280">0 s</text>';
+  s += '<text x="' + (PAD.l + PW) + '" y="' + (H - 4) + '" font-size="10" fill="#6b7280" text-anchor="end">' +
+       num(p.t[p.n - 1]) + ' s</text>';
+  svg.innerHTML = s;
+}
+
+function shRect(a, b, n, color, op){
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const x = xOf(lo, n), w = Math.max(1, xOf(hi, n) - x);
+  return '<rect x="' + x + '" y="' + PAD.t + '" width="' + w + '" height="' + PH +
+         '" fill="' + color + '" opacity="' + op + '" stroke="' + color +
+         '" stroke-width="1.1"/>';
+}
+function handle(row, n, p, kind){
+  const x = xOf(row, n);
+  const col = kind < 2 ? '#4C78A8' : '#2E9E5B';
+  return '<line x1="' + x + '" y1="' + PAD.t + '" x2="' + x + '" y2="' + (PAD.t + PH) +
+         '" stroke="' + col + '" stroke-width="2.4" stroke-linecap="round"/>' +
+         '<rect class="h" data-k="' + kind + '" x="' + (x - 5) + '" y="' + (PAD.t - 8) +
+         '" width="10" height="' + (PH + 16) + '" fill="transparent" style="cursor:ew-resize"/>';
+}
+
+function render(){
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  state.forEach((p, idx) => {
+    const {card, svg} = buildCard(p, idx);
+    draw(p, svg);
+    frag.appendChild(card);
+  });
+  list.appendChild(frag);
+}
+
+// ---- 拖动 -------------------------------------------------------------------
+let drag = null;
+const KEYS = ['bg1', 'bg2', 's1', 's2'];
+
+document.addEventListener('pointerdown', e => {
+  const rect = e.target.closest && e.target.closest('rect.h');
+  if (!rect) return;
+  const svg = rect.closest('svg');
+  const idx = +svg.dataset.idx;
+  const k = +rect.dataset.k;
+  drag = {idx, key: KEYS[k], svg};
+  svg.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const svg = drag.svg;
+  const r = svg.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * W;
+  const p = state[drag.idx];
+  let row = rowOf(x, p.n);
+  const key = drag.key;
+  if (key === 'bg1') row = Math.min(row, p.bg2 - 1);
+  if (key === 'bg2') row = Math.max(row, p.bg1 + 1);
+  if (key === 's1')  row = Math.min(row, p.s2 - 1);
+  if (key === 's2')  row = Math.max(row, p.s1 + 1);
+  p[key] = row;
+  draw(p, svg);
+});
+document.addEventListener('pointerup', () => { drag = null; });
+
+// ---- 工具栏 -----------------------------------------------------------------
+document.getElementById('btnAuto').onclick = () => {
+  state.forEach(p => {
+    if (p.auto && p.auto.s1 > 0) { p.bg1 = p.auto.bg1; p.bg2 = p.auto.bg2; p.s1 = p.auto.s1; p.s2 = p.auto.s2; }
+  });
+  render();
+};
+document.getElementById('btnReset').onclick = () => {
+  state.forEach(p => { p.bg1 = p.cur.bg1; p.bg2 = p.cur.bg2; p.s1 = p.cur.s1; p.s2 = p.cur.s2; });
+  render();
+};
+document.getElementById('btnExport').onclick = () => {
+  const head = ['序号','文件','样品',
+                '背景窗起_数据行','背景窗止_数据行','信号窗起_数据行','信号窗止_数据行',
+                '背景窗起_文件行','背景窗止_文件行','信号窗起_文件行','信号窗止_文件行',
+                '算法建议_信号窗起_数据行','算法建议_信号窗止_数据行','是否已偏离算法'];
+  const lines = [head.join(',')];
+  state.forEach(p => {
+    const off = (p.s1 !== p.auto.s1 || p.s2 !== p.auto.s2) ? '是' : '';
+    lines.push([p.i, p.file, p.name, p.bg1, p.bg2, p.s1, p.s2,
+                p.bg1 + SL - 1, p.bg2 + SL - 1, p.s1 + SL - 1, p.s2 + SL - 1,
+                p.auto.s1, p.auto.s2, off].join(','));
+  });
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '手动窗口配置.csv';
+  a.click();
+};
+
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function num(v){ return (v === null || v === undefined || isNaN(v)) ? '—' : (+v).toFixed(1); }
+
+render();
+</script>
+</body>
+</html>
